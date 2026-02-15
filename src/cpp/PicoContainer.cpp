@@ -37,8 +37,22 @@ void PicoContainer::main_loop()
     // Read altitude data from the altimeter
     m_altimeter.value().read_altitude(&altitude, temperature); 
 
-    // Send data to the RPi via USB
-    if (fgets(m_buffer, sizeof(m_buffer), stdin) != NULL) 
+    // Non-blocking read from USB stdio: accumulate until newline
+    int ch;
+    bool got_command = false;
+    while ((ch = getchar_timeout_us(0)) != PICO_ERROR_TIMEOUT) {
+        if (ch == '\r') continue;
+        if (ch == '\n' || m_buffer_pos >= (int)sizeof(m_buffer) - 1) {
+            m_buffer[m_buffer_pos] = '\0';
+            got_command = true;
+            m_buffer_pos = 0;
+            break;
+        } else {
+            m_buffer[m_buffer_pos++] = (char)ch;
+        }
+    }
+
+    if (got_command) 
     {
         if (strncmp(m_buffer, "GET_DATA", 8) == 0) 
         {

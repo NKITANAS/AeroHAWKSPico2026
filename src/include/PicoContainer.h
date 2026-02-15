@@ -32,4 +32,5 @@ class PicoContainer
         std::optional<Altimeter>          m_altimeter         = std::nullopt;
 
         char               m_buffer[64]; // Buffer for USB
+        int                m_buffer_pos = 0; // Current position in buffer for non-blocking reads
 };
