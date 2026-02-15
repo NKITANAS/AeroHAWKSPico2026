@@ -1,8 +1,4 @@
-#include <stdio.h>
-#include "pico/stdlib.h"
-#include "hardware/i2c.h"
-#include "Constants.h"
-#include "MoistureSensors.h"
+#include "main.h"
 
 // I2C defines
 // This example will use I2C0 on GPIO8 (SDA) and GPIO9 (SCL) running at 400KHz.
@@ -15,20 +11,12 @@
 
 int main()
 {
-    stdio_init_all();
+    PicoContainer pico_container{};
 
-    // I2C Initialisation. Using it at 400Khz.
-    i2c_init(I2C_PORT, 400*1000);
-    
-    gpio_set_function(I2C_SDA, GPIO_FUNC_I2C);
-    gpio_set_function(I2C_SCL, GPIO_FUNC_I2C);
-    gpio_pull_up(I2C_SDA);
-    gpio_pull_up(I2C_SCL);
-
-
-    while (true) 
+    while (true)
     {
-        printf("Hello, world!\n");
-        sleep_ms(1000);
+        pico_container.main_loop();
     }
+
+    return 0;
 }

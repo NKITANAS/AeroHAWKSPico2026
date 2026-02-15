@@ -68,16 +68,12 @@ pico_enable_stdio_usb(AeroHAWKS2026 1)
 target_link_libraries(AeroHAWKS2026
     pico_stdlib
     hardware_i2c
+    hardware_adc
 )
 
 # Add include directory
 target_include_directories(AeroHAWKS2026 PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src/include
-)
-
-# Add any extra user libraries below
-target_link_libraries(AeroHAWKS2026
-    # your additional libraries here
 )
 
 # Generate UF2, bin, and map files

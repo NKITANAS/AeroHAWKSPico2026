@@ -1,19 +1,43 @@
 #pragma once
 
 #pragma region Includes
-#include <stdio.h>
-
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
+
 #include "Constants.h"
 #pragma endregion
+
+#pragma region MPU Constants
+namespace MPUConstants
+{
+    // REFER TO DATASHEET TO MAKE SENSITIVITY CHANGES: https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-6000-Datasheet1.pdf
+    constexpr auto ACCEL_SENSITIVITY = 16384.0f; // LSB/g for the MPU6050 at +-2g range
+    constexpr auto GRAVITY           = 9.81f;    // Acceleration due to gravity in m/s^2
+    constexpr auto GYRO_SENSITIVITY  = 131.0f;   // LSB/deg/s for the MPU6050 at +-250deg/s range
+}
+
 
 class IMU
 {
     public:
-        explicit IMU(uint8_t i2c_address);
+        explicit IMU(uint8_t i2c_address, int sda_pin, int scl_pin, i2c_inst_t *i2c_port = i2c0);
         void     read_accelerometer(float *x, float *y, float *z);
         void     read_gyroscope(float *x, float *y, float *z);
+        void     read_temperature(float *temp);
     private:
-        uint8_t address;
+        // I2C address of the IMU sensor
+        uint8_t     m_address;
+        // Register addresses for the MPU6050 IMU sensor
+        uint8_t     m_accel_start = 0x3B;   // Starting register for accelerometer data in MPU6050
+        uint8_t     m_accel_end   = 0x40;   // Ending register for accelerometer data in MPU6050
+        uint8_t     m_gyro_start  = 0x43;   // Starting register for gyroscope data in MPU6050
+        uint8_t     m_gyro_end    = 0x48;   // Ending register for gyroscope data in MPU6050
+        uint8_t     m_temp_start  = 0x41;   // Starting register for temperature data in MPU6050
+        uint8_t     m_temp_end    = 0x42;   // Ending register for temperature data in MPU6050
+        // GPIO pins for I2C communication
+        int         m_sda_pin; // GPIO pin number for I2C SDA
+        int         m_scl_pin; // GPIO pin number for I2C SCL
+        // I2C port to use for communication
+        i2c_inst_t *i2c_port;
+
 };
