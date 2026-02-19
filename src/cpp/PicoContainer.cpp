@@ -10,16 +10,22 @@ PicoContainer::PicoContainer()
     // Initialize the I2C communication for the IMU sensor
     i2c_init(i2c0, 400*1000);
     // Initialize subsystems
-    m_imu.value() = IMU(Constants::IMU_I2C_ADDRESS, Constants::IMU_SDA_PIN, Constants::IMU_SCL_PIN, i2c0);
-    m_moisture_sensor_1.value() = SoilMoistureSensor(Constants::MOISTURE_SENSOR_1_PIN, Constants::MOISTURE_SENSOR_1_ADC_CHANNEL);
-    m_moisture_sensor_2.value() = SoilMoistureSensor(Constants::MOISTURE_SENSOR_2_PIN, Constants::MOISTURE_SENSOR_2_ADC_CHANNEL);
-    m_altimeter.value()         = Altimeter(Constants::ALTIMITER_I2C_ADDRESS, Constants::ALTIMITER_SDA_PIN, Constants::ALTIMITER_SCL_PIN);
+    m_imu.init();
+    m_moisture_sensor_1.init();
+    m_moisture_sensor_2.init();
+    m_altimeter.init();
 
-    // Wait for USB
-    while (!stdio_usb_connected()) 
-    {
-        sleep_ms(100);
-    }
+    // Set initial speed and orientation
+    speed_x = 0;
+    speed_y = 0;
+    speed_z = 0;
+
+    orint_x = 0;
+    orint_y = 0;
+    orint_z = 0;
+
+    // Find current time
+    m_current_time = get_absolute_time();
 }
 #pragma endregion
 
@@ -28,14 +34,29 @@ PicoContainer::PicoContainer()
 void PicoContainer::main_loop()
 {
     // Read data from the IMU sensor
-    m_imu.value().read_accelerometer(&accel_x, &accel_y, &accel_z);
-    m_imu.value().read_gyroscope(&gyro_x, &gyro_y, &gyro_z);
-    m_imu.value().read_temperature(&temperature);
+    m_imu.read_accelerometer(&accel_x, &accel_y, &accel_z);
+    m_imu.read_gyroscope(&gyro_x, &gyro_y, &gyro_z);
+    m_imu.read_temperature(&temperature);
+
+    // Find the current time and update the old time
+    m_old_time     = m_current_time;
+    m_current_time = get_absolute_time();
+
+    // Use time to derive speed and orientation
+    speed_x += accel_x * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
+    speed_y += accel_y * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
+    speed_z += accel_z * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
+
+    // For orientation, we can simply integrate the gyro data (this is a very basic approach and may drift over time)
+    orint_x += gyro_x * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
+    orint_y += gyro_y * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
+    orint_z += gyro_z * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
+
     // Read data from the soil moisture sensors
-    uint16_t moisture_1 = m_moisture_sensor_1.value().read_moisture();
-    uint16_t moisture_2 = m_moisture_sensor_2.value().read_moisture();
+    uint16_t moisture_1 = m_moisture_sensor_1.read_moisture();
+    uint16_t moisture_2 = m_moisture_sensor_2.read_moisture();
     // Read altitude data from the altimeter
-    m_altimeter.value().read_altitude(&altitude, temperature); 
+    m_altimeter.read_altitude(&altitude, temperature); 
 
     // Non-blocking read from USB stdio: accumulate until newline
     int ch;
@@ -86,6 +107,14 @@ void PicoContainer::main_loop()
         else if (strncmp(m_buffer, "GET_MOISTURE_2", 14) == 0)
         {
             printf("MOISTURE_2: %u\n", moisture_2);
+        }
+        else if (strncmp(m_buffer, "GET_SPEED", 9) == 0)
+        {
+            printf("SPEED: %.2f, %.2f, %.2f\n", speed_x, speed_y, speed_z);
+        }
+        else if (strncmp(m_buffer, "GET_ORIENTATION", 9) == 0)
+        {
+            printf("ORIENTATION: %.2f, %.2f, %.2f\n", orint_x, orint_y, orint_z);
         }
         else if (strncmp(m_buffer, "PING", 4) == 0) 
         {

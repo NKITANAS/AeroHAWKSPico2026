@@ -12,12 +12,19 @@ Altimeter::Altimeter(uint8_t i2c_address, int sda_pin, int scl_pin, i2c_inst_t *
     m_sda_pin = sda_pin;
     m_scl_pin = scl_pin;
     this->i2c_port = i2c_port;
-    gpio_set_function(sda_pin, GPIO_FUNC_I2C);
-    gpio_set_function(scl_pin, GPIO_FUNC_I2C);
-    gpio_pull_up(sda_pin);
-    gpio_pull_up(scl_pin);
+
 }
 #pragma endregion
+
+#pragma region Init
+/// @brief Initializes the altimeter sensor.
+void Altimeter::init()
+{
+    gpio_set_function(m_sda_pin, GPIO_FUNC_I2C);
+    gpio_set_function(m_scl_pin, GPIO_FUNC_I2C);
+    gpio_pull_up(m_sda_pin);
+    gpio_pull_up(m_scl_pin);
+}
 
 #pragma region Read Altitude
 /// @brief Reads the altitude data from the altimeter sensor.

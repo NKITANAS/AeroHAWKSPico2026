@@ -21,6 +21,7 @@ class IMU
 {
     public:
         explicit IMU(uint8_t i2c_address, int sda_pin, int scl_pin, i2c_inst_t *i2c_port = i2c0);
+        void     init();
         void     read_accelerometer(float *x, float *y, float *z);
         void     read_gyroscope(float *x, float *y, float *z);
         void     read_temperature(float *temp);

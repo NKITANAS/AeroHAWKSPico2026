@@ -12,13 +12,22 @@ IMU::IMU(uint8_t i2c_address, int sda_pin, int scl_pin, i2c_inst_t *i2c_port)
     m_sda_pin = sda_pin;
     m_scl_pin = scl_pin;
     this->i2c_port = i2c_port;
-
-    gpio_set_function(sda_pin, GPIO_FUNC_I2C);
-    gpio_set_function(scl_pin, GPIO_FUNC_I2C);
-    gpio_pull_up(sda_pin);
-    gpio_pull_up(scl_pin);
 }
 #pragma endregion
+
+#pragma region Init
+/// @brief Initializes the IMU sensor by waking it up from sleep mode.
+void IMU::init()
+{
+    // init pins
+    gpio_set_function(m_sda_pin, GPIO_FUNC_I2C);
+    gpio_set_function(m_scl_pin, GPIO_FUNC_I2C);
+    gpio_pull_up(m_sda_pin);
+    gpio_pull_up(m_scl_pin);
+    // Wake up the MPU6050 by writing 0 to the power management register (0x6B)
+    uint8_t wake_command[2] = {0x6B, 0x00}; // Register address and value to wake up the sensor
+    i2c_write_blocking(i2c_port, m_address, wake_command, 2, false);
+}
 
 #pragma region Read MPUerometer
 /// @brief Reads the accelerometer data from the IMU sensor.

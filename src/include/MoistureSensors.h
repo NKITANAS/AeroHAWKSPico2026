@@ -12,6 +12,7 @@ class SoilMoistureSensor
 {
     public:
         explicit SoilMoistureSensor(int pin, int adc_input);
+        void     init();
         uint16_t read_moisture();
     private:
         int m_adc_channel;

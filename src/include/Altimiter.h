@@ -11,6 +11,7 @@ class Altimeter
 {
     public:
         explicit Altimeter(uint8_t i2c_address, int sda_pin, int scl_pin, i2c_inst_t *i2c_port = i2c0);
+        void     init();
         void     read_altitude(float *altitude, float temperature);
     private:
         // I2C addresses for altimeter sensor

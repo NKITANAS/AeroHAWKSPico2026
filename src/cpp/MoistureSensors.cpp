@@ -6,14 +6,19 @@
 /// @param adc_input The ADC channel number corresponding to the GPIO pin (0-3 for GPIO26-29).
 SoilMoistureSensor::SoilMoistureSensor(int pin, int adc_input)
 {
-    // Set the pin as an input
-    adc_gpio_init(pin);
-
     // Store the pin number and ADC channel for later use
     m_pin_number = pin;
     m_adc_channel = adc_input;
 }
 #pragma endregion
+
+#pragma region Init
+/// @brief Initializes the soil moisture sensor.
+void SoilMoistureSensor::init()
+{
+    // Set the pin as an input
+    adc_gpio_init(m_pin_number); 
+}
 
 #pragma region Read Moisture
 /// @brief Reads the moisture level from the soil moisture sensor.
