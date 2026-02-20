@@ -1,22 +1,20 @@
 #include "main.h"
 
-// I2C defines
-// This example will use I2C0 on GPIO8 (SDA) and GPIO9 (SCL) running at 400KHz.
-// Pins can be changed, see the GPIO function select table in the datasheet for information on GPIO assignments
-#define I2C_PORT i2c0
-#define I2C_SDA 8
-#define I2C_SCL 9
-
 // For more examples of I2C use see https://github.com/raspberrypi/pico-examples/tree/master/i2c
+
+PicoContainer pico_container{};
 
 int main()
 {
-    PicoContainer pico_container{};
+    stdio_init_all(); // Initialize all standard IO (for USB communication)
+
+    multicore_launch_core1(pico_container.core2_loop); // Start the second core for handling USB communication
 
     while (true)
     {
         pico_container.main_loop();
     }
+
 
     return 0;
 }

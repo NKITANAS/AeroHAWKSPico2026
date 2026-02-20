@@ -33,31 +33,6 @@ PicoContainer::PicoContainer()
 /// @brief The main loop of the PicoContainer, which continuously reads data from the IMU and soil moisture sensors, and sends it to the Raspberry Pi over I2C.
 void PicoContainer::main_loop()
 {
-    // Read data from the IMU sensor
-    m_imu.read_accelerometer(&accel_x, &accel_y, &accel_z);
-    m_imu.read_gyroscope(&gyro_x, &gyro_y, &gyro_z);
-    m_imu.read_temperature(&temperature);
-
-    // Find the current time and update the old time
-    m_old_time     = m_current_time;
-    m_current_time = get_absolute_time();
-
-    // Use time to derive speed and orientation
-    speed_x += accel_x * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
-    speed_y += accel_y * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
-    speed_z += accel_z * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
-
-    // For orientation, we can simply integrate the gyro data (this is a very basic approach and may drift over time)
-    orint_x += gyro_x * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
-    orint_y += gyro_y * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
-    orint_z += gyro_z * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
-
-    // Read data from the soil moisture sensors
-    uint16_t moisture_1 = m_moisture_sensor_1.read_moisture();
-    uint16_t moisture_2 = m_moisture_sensor_2.read_moisture();
-    // Read altitude data from the altimeter
-    m_altimeter.read_altitude(&altitude, temperature); 
-
     // Non-blocking read from USB stdio: accumulate until newline
     int ch;
     bool got_command = false;
@@ -129,3 +104,37 @@ void PicoContainer::main_loop()
             sleep_ms(10);  // small delay to reduce CPU usage
 }
 #pragma endregion
+
+#pragma region Core 2 Loop
+/// @brief The loop that runs on the second core of the Pico, which will be used to process numbers when implemented
+void PicoContainer::core2_loop()
+{
+    while (true)
+    {
+        // Read data from the IMU sensor
+        m_imu.read_accelerometer(&accel_x, &accel_y, &accel_z);
+        m_imu.read_gyroscope(&gyro_x, &gyro_y, &gyro_z);
+        m_imu.read_temperature(&temperature);
+
+        // Find the current time and update the old time
+        m_old_time     = m_current_time;
+        m_current_time = get_absolute_time();
+
+        // Use time to derive speed and orientation
+        speed_x += accel_x * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
+        speed_y += accel_y * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
+        speed_z += accel_z * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
+
+        // For orientation, we can simply integrate the gyro data (this is a very basic approach and may drift over time)
+        orint_x += gyro_x * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
+        orint_y += gyro_y * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
+        orint_z += gyro_z * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
+
+        // Read data from the soil moisture sensors
+        moisture_1 = m_moisture_sensor_1.read_moisture();
+        moisture_2 = m_moisture_sensor_2.read_moisture();
+        // Read altitude data from the altimeter
+        m_altimeter.read_altitude(&altitude, temperature); 
+        sleep_ms(2); // small delay to reduce CPU usage
+    }
+}
