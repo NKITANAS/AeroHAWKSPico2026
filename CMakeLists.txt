@@ -69,6 +69,7 @@ target_link_libraries(AeroHAWKS2026
     pico_stdlib
     hardware_i2c
     hardware_adc
+    pico_multicore
 )
 
 # Add include directory

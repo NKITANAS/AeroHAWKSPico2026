@@ -31,7 +31,7 @@ class PicoContainer
         volatile float altitude;                  // Altitude data in meters
         volatile float speed_x, speed_y, speed_z; // Velocity derived from accel data
         volatile float orint_x, orint_y, orint_z; // Orientation derived from gyro data
-        volatile float moisture_1, moisture_2;              // Moisture level from sensor 1
+        volatile uint16_t moisture_1, moisture_2;              // Moisture level from sensor 1
     private:
         IMU                m_imu{Constants::IMU_I2C_ADDRESS, Constants::IMU_SDA_PIN, Constants::IMU_SCL_PIN};
         SoilMoistureSensor m_moisture_sensor_1{Constants::MOISTURE_SENSOR_1_PIN, Constants::MOISTURE_SENSOR_1_ADC_CHANNEL};

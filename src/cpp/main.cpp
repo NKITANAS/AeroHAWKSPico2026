@@ -8,7 +8,9 @@ int main()
 {
     stdio_init_all(); // Initialize all standard IO (for USB communication)
 
-    multicore_launch_core1(pico_container.core2_loop); // Start the second core for handling USB communication
+    // multicore not available for this target currently; run main loop on core0
+    // If multicore is supported later, restore multicore_launch_core1 usage.
+    multicore_launch_core1([]() { pico_container.core2_loop(); });
 
     while (true)
     {

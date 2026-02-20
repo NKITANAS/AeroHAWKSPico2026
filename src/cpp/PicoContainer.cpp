@@ -112,29 +112,29 @@ void PicoContainer::core2_loop()
     while (true)
     {
         // Read data from the IMU sensor
-        m_imu.read_accelerometer(&accel_x, &accel_y, &accel_z);
-        m_imu.read_gyroscope(&gyro_x, &gyro_y, &gyro_z);
-        m_imu.read_temperature(&temperature);
+        m_imu.read_accelerometer(const_cast<float*>(&accel_x), const_cast<float*>(&accel_y), const_cast<float*>(&accel_z));
+        m_imu.read_gyroscope(const_cast<float*>(&gyro_x), const_cast<float*>(&gyro_y), const_cast<float*>(&gyro_z));
+        m_imu.read_temperature(const_cast<float*>(&temperature));
 
         // Find the current time and update the old time
         m_old_time     = m_current_time;
         m_current_time = get_absolute_time();
 
         // Use time to derive speed and orientation
-        speed_x += accel_x * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
-        speed_y += accel_y * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
-        speed_z += accel_z * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
+        speed_x += accel_x * (absolute_time_diff_us(m_current_time, m_old_time) * 1e-6f);
+        speed_y += accel_y * (absolute_time_diff_us(m_current_time, m_old_time) * 1e-6f);
+        speed_z += accel_z * (absolute_time_diff_us(m_current_time, m_old_time) * 1e-6f);
 
         // For orientation, we can simply integrate the gyro data (this is a very basic approach and may drift over time)
-        orint_x += gyro_x * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
-        orint_y += gyro_y * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
-        orint_z += gyro_z * (absolute_time_diff_us(m_current_time, m_old_time) * 1e6f);
+        orint_x += gyro_x * (absolute_time_diff_us(m_current_time, m_old_time) * 1e-6f);
+        orint_y += gyro_y * (absolute_time_diff_us(m_current_time, m_old_time) * 1e-6f);
+        orint_z += gyro_z * (absolute_time_diff_us(m_current_time, m_old_time) * 1e-6f);
 
         // Read data from the soil moisture sensors
         moisture_1 = m_moisture_sensor_1.read_moisture();
         moisture_2 = m_moisture_sensor_2.read_moisture();
         // Read altitude data from the altimeter
-        m_altimeter.read_altitude(&altitude, temperature); 
+        m_altimeter.read_altitude(const_cast<float*>(&altitude), temperature); 
         sleep_ms(2); // small delay to reduce CPU usage
     }
 }
