@@ -24,6 +24,14 @@ PicoContainer::PicoContainer()
     orint_y = 0;
     orint_z = 0;
 
+    filtered_altitude = 0;
+    filtered_velocity = 0;
+
+    // Initialize Kalman filter for vertical velocity estimation
+    // accel_variance: accelerometer noise (higher = trust accel less)
+    // altitude_variance: barometer noise (higher = trust baro less)
+    m_kalman_filter.init(0.0f, 1.0f, 2.0f);
+
     // Find current time
     m_current_time = get_absolute_time();
 }
@@ -33,75 +41,41 @@ PicoContainer::PicoContainer()
 /// @brief The main loop of the PicoContainer, which continuously reads data from the IMU and soil moisture sensors, and sends it to the Raspberry Pi over I2C.
 void PicoContainer::main_loop()
 {
-    // Non-blocking read from USB stdio: accumulate until newline
-    int ch;
-    bool got_command = false;
-    while ((ch = getchar_timeout_us(0)) != PICO_ERROR_TIMEOUT) {
-        if (ch == '\r') continue;
-        if (ch == '\n' || m_buffer_pos >= (int)sizeof(m_buffer) - 1) {
-            m_buffer[m_buffer_pos] = '\0';
-            got_command = true;
-            m_buffer_pos = 0;
-            break;
-        } else {
-            m_buffer[m_buffer_pos++] = (char)ch;
-        }
-    }
-
-    if (got_command) 
+    while (true)
     {
-        if (strncmp(m_buffer, "GET_DATA", 8) == 0) 
+        // Run Kalman filter to fuse accelerometer + barometric altitude
+        // accel_z is gravity-compensated: subtract gravity (sensor reads ~+9.81 when stationary)
+        float vertical_accel = accel_z - Constants::GRAVITY;
+        float dt = absolute_time_diff_us(m_old_time, m_current_time) * 1e-6f;
+        m_kalman_filter.update(vertical_accel, dt);
+        filtered_altitude = m_kalman_filter.get_altitude();
+        filtered_velocity = m_kalman_filter.get_velocity();
+        
+        if (current_state == State::IDLE)
         {
-            printf("ACCEL: %.2f, %.2f, %.2f\n", accel_x, accel_y, accel_z);
-            printf("GYRO: %.2f, %.2f, %.2f\n", gyro_x, gyro_y, gyro_z);
-            printf("TEMP: %.2f\n", temperature);
-            printf("ALTITUDE: %.2f\n", altitude);
-            printf("MOISTURE_1: %u\n", moisture_1);
-            printf("MOISTURE_2: %u\n", moisture_2);
+            if (filtered_velocity > 0.5) // Simple condition to detect launch (adjust threshold as needed)
+            {
+                current_state = State::ASCENT; // Transition to ASCENT state
+            }
         }
-        else if (strncmp(m_buffer, "GET_ACCEL", 9) == 0)
+        else if (current_state == State::ASCENT)
         {
-            printf("ACCEL: %.2f, %.2f, %.2f\n", accel_x, accel_y, accel_z);
+
+
+            printf("ALT: %.2f m, VEL: %.2f m/s\n", filtered_altitude, filtered_velocity); // Debug output
+
+            if (filtered_velocity < 0.5 && filtered_altitude < 10) // Simple condition to detect landing (adjust thresholds as needed)
+            {
+                sleep_ms(5000);
+                current_state = State::LANDED; // Transition to APOGEE state
+            }
         }
-        else if (strncmp(m_buffer, "GET_GYRO", 8) == 0)
+        else if (current_state == State::LANDED)
         {
-            printf("GYRO: %.2f, %.2f, %.2f\n", gyro_x, gyro_y, gyro_z);
-        }
-        else if (strncmp(m_buffer, "GET_TEMP", 8) == 0)
-        {
-            printf("TEMP: %.2f\n", temperature);
-        }
-        else if (strncmp(m_buffer, "GET_ALTITUDE", 12) == 0)
-        {
-            printf("ALTITUDE: %.2f\n", altitude);
-        }
-        else if (strncmp(m_buffer, "GET_MOISTURE_1", 14) == 0)
-        {
-            printf("MOISTURE_1: %u\n", moisture_1);
-        }
-        else if (strncmp(m_buffer, "GET_MOISTURE_2", 14) == 0)
-        {
-            printf("MOISTURE_2: %u\n", moisture_2);
-        }
-        else if (strncmp(m_buffer, "GET_SPEED", 9) == 0)
-        {
-            printf("SPEED: %.2f, %.2f, %.2f\n", speed_x, speed_y, speed_z);
-        }
-        else if (strncmp(m_buffer, "GET_ORIENTATION", 9) == 0)
-        {
-            printf("ORIENTATION: %.2f, %.2f, %.2f\n", orint_x, orint_y, orint_z);
-        }
-        else if (strncmp(m_buffer, "PING", 4) == 0) 
-        {
-            printf("PONG\n");
-        }
-        else 
-        {
-            printf("UNKNOWN_COMMAND\n");
+            // Once landed, we can continue reading sensors and sending data, or we can enter a low-power mode if desired
+            
         }
     }
-
-            sleep_ms(10);  // small delay to reduce CPU usage
 }
 #pragma endregion
 
@@ -120,21 +94,24 @@ void PicoContainer::core2_loop()
         m_old_time     = m_current_time;
         m_current_time = get_absolute_time();
 
-        // Use time to derive speed and orientation
-        speed_x += accel_x * (absolute_time_diff_us(m_current_time, m_old_time) * 1e-6f);
-        speed_y += accel_y * (absolute_time_diff_us(m_current_time, m_old_time) * 1e-6f);
-        speed_z += accel_z * (absolute_time_diff_us(m_current_time, m_old_time) * 1e-6f);
+        // Calculate dt in seconds
+        float dt = absolute_time_diff_us(m_old_time, m_current_time) * 1e-6f;
 
-        // For orientation, we can simply integrate the gyro data (this is a very basic approach and may drift over time)
-        orint_x += gyro_x * (absolute_time_diff_us(m_current_time, m_old_time) * 1e-6f);
-        orint_y += gyro_y * (absolute_time_diff_us(m_current_time, m_old_time) * 1e-6f);
-        orint_z += gyro_z * (absolute_time_diff_us(m_current_time, m_old_time) * 1e-6f);
+        // Use time to derive speed (simple integration, kept for X/Y axes)
+        speed_x += accel_x * dt;
+        speed_y += accel_y * dt;
+        speed_z += accel_z * dt;
+
+        // For orientation, integrate the gyro data (basic approach, may drift)
+        orint_x += gyro_x * dt;
+        orint_y += gyro_y * dt;
+        orint_z += gyro_z * dt;
 
         // Read data from the soil moisture sensors
         moisture_1 = m_moisture_sensor_1.read_moisture();
         moisture_2 = m_moisture_sensor_2.read_moisture();
         // Read altitude data from the altimeter
         m_altimeter.read_altitude(const_cast<float*>(&altitude), temperature); 
-        sleep_ms(2); // small delay to reduce CPU usage
+        sleep_ms(1); // small delay to reduce CPU usage
     }
 }

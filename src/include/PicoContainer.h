@@ -16,7 +16,17 @@
 #include "IMU.h"
 #include "MoistureSensors.h"
 #include "Altimiter.h"
+#include "Stepper.h"
+#include "LinearActuator.h"
+#include "KalmanFilter.h"
 #pragma endregion
+
+enum State
+{
+    IDLE,
+    ASCENT,
+    LANDED
+};
 
 class PicoContainer
 {
@@ -31,7 +41,12 @@ class PicoContainer
         volatile float altitude;                  // Altitude data in meters
         volatile float speed_x, speed_y, speed_z; // Velocity derived from accel data
         volatile float orint_x, orint_y, orint_z; // Orientation derived from gyro data
-        volatile uint16_t moisture_1, moisture_2;              // Moisture level from sensor 1
+        volatile float filtered_altitude;            // Kalman-filtered altitude (m)
+        volatile float filtered_velocity;            // Kalman-filtered vertical velocity (m/s)
+        volatile uint16_t moisture_1, moisture_2; // Moisture level from the sensors
+
+        volatile State current_state = IDLE; // Current state of the flight, initialized to IDLE
+        
     private:
         IMU                m_imu{Constants::IMU_I2C_ADDRESS, Constants::IMU_SDA_PIN, Constants::IMU_SCL_PIN};
         SoilMoistureSensor m_moisture_sensor_1{Constants::MOISTURE_SENSOR_1_PIN, Constants::MOISTURE_SENSOR_1_ADC_CHANNEL};
@@ -39,8 +54,10 @@ class PicoContainer
         Altimeter          m_altimeter{Constants::ALTIMITER_I2C_ADDRESS, Constants::ALTIMITER_SDA_PIN, Constants::ALTIMITER_SCL_PIN};
 
         char m_buffer[64]; // Buffer for USB
-        int m_buffer_pos = 0; // Current position in buffer for non-blocking reads
+        int  m_buffer_pos = 0; // Current position in buffer for non-blocking reads
 
         absolute_time_t    m_old_time;
         absolute_time_t    m_current_time;
+
+        KalmanFilter       m_kalman_filter; // Kalman filter for altitude/velocity estimation
 };
