@@ -25,8 +25,11 @@ void IMU::init()
     gpio_pull_up(m_sda_pin);
     gpio_pull_up(m_scl_pin);
     // Wake up the MPU6050 by writing 0 to the power management register (0x6B)
-    uint8_t wake_command[2] = {0x6B, 0x00}; // Register address and value to wake up the sensor
+    uint8_t wake_command[2] = {0x6B, 0x00};
     i2c_write_blocking(i2c_port, m_address, wake_command, 2, false);
+    // Set accelerometer full-scale range to +-16g (AFS_SEL = 0b11 -> 0x18 to register 0x1C)
+    uint8_t accel_config[2] = {0x1C, 0x18};
+    i2c_write_blocking(i2c_port, m_address, accel_config, 2, false);
 }
 
 #pragma region Read MPUerometer
@@ -42,6 +45,41 @@ void IMU::read_accelerometer(float *x, float *y, float *z)
     *x = (int16_t)((accel_data[0] << 8) | accel_data[1]) / MPUConstants::ACCEL_SENSITIVITY * MPUConstants::GRAVITY;
     *y = (int16_t)((accel_data[2] << 8) | accel_data[3]) / MPUConstants::ACCEL_SENSITIVITY * MPUConstants::GRAVITY;
     *z = (int16_t)((accel_data[4] << 8) | accel_data[5]) / MPUConstants::ACCEL_SENSITIVITY * MPUConstants::GRAVITY;
+}
+#pragma endregion
+
+#pragma region Read Velocity
+/// @brief Integrates accelerometer data over time to compute velocity in m/s.
+/// @param vx Pointer to store the X-axis velocity (m/s).
+/// @param vy Pointer to store the Y-axis velocity (m/s).
+/// @param vz Pointer to store the Z-axis velocity (m/s).
+void IMU::read_velocity(float *vx, float *vy, float *vz)
+{
+    float ax, ay, az;
+    read_accelerometer(&ax, &ay, &az);
+
+    uint64_t now = time_us_64();
+    if (m_last_time_us != 0)
+    {
+        float dt = (now - m_last_time_us) * 1e-6f; // microseconds to seconds
+        m_vx += ax * dt;
+        m_vy += ay * dt;
+        m_vz += az * dt;
+    }
+    m_last_time_us = now;
+
+    *vx = m_vx;
+    *vy = m_vy;
+    *vz = m_vz;
+}
+
+/// @brief Resets the integrated velocity state to zero.
+void IMU::reset_velocity()
+{
+    m_vx = 0.0f;
+    m_vy = 0.0f;
+    m_vz = 0.0f;
+    m_last_time_us = 0;
 }
 #pragma endregion
 
