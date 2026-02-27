@@ -23,16 +23,9 @@ class IMU
         explicit IMU(uint8_t i2c_address, int sda_pin, int scl_pin, i2c_inst_t *i2c_port = i2c0);
         void     init();
         void     read_accelerometer(float *x, float *y, float *z);
-        void     read_velocity(float *vx, float *vy, float *vz);
-        void     reset_velocity();
         void     read_gyroscope(float *x, float *y, float *z);
         void     read_temperature(float *temp);
     private:
-        // Velocity state (integrated from accelerometer, m/s)
-        float       m_vx = 0.0f;
-        float       m_vy = 0.0f;
-        float       m_vz = 0.0f;
-        uint64_t    m_last_time_us = 0;
         // I2C address of the IMU sensor
         uint8_t     m_address;
         // Register addresses for the MPU6050 IMU sensor

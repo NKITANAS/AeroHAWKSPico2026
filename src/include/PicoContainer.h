@@ -56,7 +56,7 @@ class PicoContainer
         Stepper            m_stepper{Constants::STEPPER_DIR_PIN, Constants::STEPPER_STEP_PIN, Constants::STEPPER_ENABLE_PIN, Constants::STEPPER_SLEEP_PIN};
         LinearActuator     m_actuator_1{Constants::ACTUATOR_1_PIN_1, Constants::ACTUATOR_1_PIN_2};
         LinearActuator     m_actuator_2{Constants::ACTUATOR_2_PIN_1, Constants::ACTUATOR_2_PIN_2};
-        KalmanFilter                m_kalman_filter; // Kalman filter for altitude/velocity estimation
+        KalmanFilter       m_kalman_filter; // Kalman filter for altitude/velocity estimation
 
         char m_buffer[64]; // Buffer for USB
         int  m_buffer_pos = 0; // Current position in buffer for non-blocking reads
@@ -68,6 +68,6 @@ class PicoContainer
 
         float accel_x_temp, accel_y_temp, accel_z_temp; // Temporary variables for accelerometer data processing
         float gyro_x_temp, gyro_y_temp, gyro_z_temp;    // Temporary variables for gyroscope data processing
-        float temperature_temp;                          // Temporary variable for temperature data processing
+        float temperature_temp;                         // Temporary variable for temperature data processing
 
 };

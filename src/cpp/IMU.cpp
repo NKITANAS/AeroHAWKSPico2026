@@ -48,41 +48,6 @@ void IMU::read_accelerometer(float *x, float *y, float *z)
 }
 #pragma endregion
 
-#pragma region Read Velocity
-/// @brief Integrates accelerometer data over time to compute velocity in m/s.
-/// @param vx Pointer to store the X-axis velocity (m/s).
-/// @param vy Pointer to store the Y-axis velocity (m/s).
-/// @param vz Pointer to store the Z-axis velocity (m/s).
-void IMU::read_velocity(float *vx, float *vy, float *vz)
-{
-    float ax, ay, az;
-    read_accelerometer(&ax, &ay, &az);
-
-    uint64_t now = time_us_64();
-    if (m_last_time_us != 0)
-    {
-        float dt = (now - m_last_time_us) * 1e-6f; // microseconds to seconds
-        m_vx += ax * dt;
-        m_vy += ay * dt;
-        m_vz += az * dt;
-    }
-    m_last_time_us = now;
-
-    *vx = m_vx;
-    *vy = m_vy;
-    *vz = m_vz;
-}
-
-/// @brief Resets the integrated velocity state to zero.
-void IMU::reset_velocity()
-{
-    m_vx = 0.0f;
-    m_vy = 0.0f;
-    m_vz = 0.0f;
-    m_last_time_us = 0;
-}
-#pragma endregion
-
 #pragma region Read Gyroscope
 /// @brief Reads the gyroscope data from the IMU sensor.
 /// @param x Pointer to store the X-axis angular velocity value.
