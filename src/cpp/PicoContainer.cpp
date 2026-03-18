@@ -6,6 +6,11 @@ PicoContainer::PicoContainer()
 {
     // init things
     stdio_init_all(); // Initialize all standard IO (for USB communication)
+    if (Constants::USE_UART)
+    {
+        // Initialize UART for debugging or additional sensors
+        stdio_uart_init_full(uart0, 115200, 0, 1); // uart, baud, tx_pin, rx_pin
+    }
     adc_init();       // Initialize the ADC for soil moisture sensors
     // Initialize the I2C communication for the IMU sensor
     i2c_init(i2c0, 400*1000);
@@ -60,7 +65,19 @@ void PicoContainer::main_loop()
         m_kalman_filter.update(vertical_accel, dt);
         filtered_altitude = m_kalman_filter.get_altitude();
         filtered_velocity = m_kalman_filter.get_velocity();
-        
+
+        if constexpr (Constants::TRANSMIT_ONLY)
+        {
+            // Transmit-only mode: skip all flight-stage logic and just broadcast sensor data
+            printf("ACCEL: %.2f %.2f %.2f | GYRO: %.2f %.2f %.2f | TEMP: %.2f | ALT: %.2f m | VEL: %.2f m/s\n",
+                accel_x, accel_y, accel_z,
+                gyro_x,  gyro_y,  gyro_z,
+                temperature,
+                filtered_altitude, filtered_velocity);
+            sleep_us(500);
+            continue;
+        }
+
         if (current_state == State::IDLE)
         {
             if (filtered_velocity > 0.5) // Simple condition to detect launch (adjust threshold as needed)
@@ -92,49 +109,32 @@ void PicoContainer::main_loop()
                 |
                 |
             */
-           if (accel_x > 0 && accel_y > 0)
-           {
-                // Up Window
-                printf("Determined Up Window\n");
-                m_stepper.step_forward(Constants::STEPPER_WINDOW1); // Move stepper to window 1 position
-                m_actuator_1.extend(); // Extend actuator
-                m_moisture_sensor_1.read_moisture(); // Read moisture from sensor 1
-                printf("Moisture: %d\n", moisture_1);
-           }
-           else if (accel_x < 0 && accel_y > 0)
-           {
-                // Down window
-                printf("Determined Down Window\n");
-                m_stepper.step_forward(Constants::STEPPER_WINDOW2); // Move stepper to window 2 position
-                m_actuator_2.extend(); // Extend actuator 2 to open window 2
-                m_moisture_sensor_2.read_moisture(); // Read moisture from sensor 2
-                printf("Moisture: %d\n", moisture_2);
-           }
-           else if (accel_x < 0 && accel_y < 0)
-           {
-                // Left Window
-                printf("Determined Left Window\n");
-                m_stepper.step_forward(Constants::STEPPER_WINDOW3); // Move stepper to window 3 position
-                m_actuator_1.extend(); // Extend actuator 1 to open window 3
-                m_moisture_sensor_1.read_moisture(); // Read moisture from sensor 1
-                printf("Moisture: %d\n", moisture_1);
-           }
-           else if (accel_x > 0 && accel_y < 0)
-           {
-                // Right Window
-                printf("Determined Right Window\n");
-                m_stepper.step_forward(Constants::STEPPER_WINDOW4); // Move stepper to window 4 position
-                m_actuator_2.extend(); // Extend actuator 2 to open window 4
-                m_moisture_sensor_2.read_moisture(); // Read moisture from sensor 2
-                printf("Moisture: %d\n", moisture_2);
-           }
+            // First, calibrate the stepper to ensure it is in a known position
+            m_stepper.calibrate();
+            float angle = atan2(accel_y, accel_x) * 100 / M_PI; // Calculate steps needed to rotate to the optimal position (assuming 200 steps per revolution, adjust as needed)
             
+            if (angle > 0)
+            {
+                if (angle < 20)
+                {
+                    m_stepper.step_forward(static_cast<int>(20)); // Rotate stepper to the optimal position
+                }
+                m_stepper.step_forward(static_cast<int>(angle)); // Rotate stepper to the optimal position
+            }
+            else
+            {
+                if (angle > -20)
+                {
+                    m_stepper.step_backward(static_cast<int>(20)); // Rotate stepper to the optimal position
+                }
+                m_stepper.step_backward(static_cast<int>(-angle)); // Rotate stepper to the optimal position
+            }
             
         }
         sleep_us(500); // small delay to reduce CPU usage
     }
 }
-#pragma endregionL stat
+#pragma endregion
 
 #pragma region Core 2 Loop
 /// @brief The loop that runs on the second core of the Pico, which will be used to process numbers when implemented
@@ -179,3 +179,4 @@ void PicoContainer::core2_loop()
         sleep_us(500); // small delay to reduce CPU usage
     }
 }
+#pragma endregion

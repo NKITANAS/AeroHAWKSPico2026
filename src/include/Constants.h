@@ -41,9 +41,16 @@ namespace Constants
 
 
     // Linear Actuator
-    constexpr auto ACTUATOR_1_PIN_1              = 19;         // GPIO pin number for linear actuator 1 control pin 1
-    constexpr auto ACTUATOR_1_PIN_2              = 20;         // GPIO pin number for linear actuator 1 control pin 2
-    constexpr auto ACTUATOR_2_PIN_1              = 21;         // GPIO pin number for linear actuator 2 control pin 1
-    constexpr auto ACTUATOR_2_PIN_2              = 22;         // GPIO pin number for linear actuator 2 control pin 2
+    constexpr auto ACTUATOR_1_PIN_1              = 18;         // GPIO pin number for linear actuator 1 control pin 1
+    constexpr auto ACTUATOR_1_PIN_2              = 19;         // GPIO pin number for linear actuator 1 control pin 2
+    constexpr auto ACTUATOR_2_PIN_1              = 20;         // GPIO pin number for linear actuator 2 control pin 1
+    constexpr auto ACTUATOR_2_PIN_2              = 21;         // GPIO pin number for linear actuator 2 control pin 2
+
+    // Servo Motor(if used)
+    constexpr auto STEPPER_PWM_PIN               = 22;         // GPIO pin number for servo motor PWM control
+
+    constexpr auto USE_UART                      = false;       // Set to true to enable UART communication (for debugging or additional sensors)
+    constexpr auto TRANSMIT_ONLY                 = false;       // Set to true to skip all flight logic and only transmit collected sensor data every loop iteration
+
 
 }

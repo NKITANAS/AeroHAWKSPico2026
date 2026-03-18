@@ -54,3 +54,13 @@ void Stepper::step_backward(int steps)
         m_step_counter--;         // Decrement step counter
     }
 }
+#pragma endregion
+
+#pragma region Calibrate
+/// @brief Calibrates the stepper motor by moving it to a known reference position (e.g., a limit switch or home position) and resetting the step counter to zero. This function should be called at startup to ensure the motor's position is accurately tracked.
+void Stepper::calibrate()
+{
+    step_backward(150);
+    m_step_counter = 0; // Reset step counter to zero after calibration
+}
+#pragma endregion
