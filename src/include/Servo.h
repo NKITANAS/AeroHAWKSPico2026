@@ -1,6 +1,7 @@
 #include "Constants.h"
 #include "hardware/pwm.h"
 #include "hardware/gpio.h"
+#include "hardware/clocks.h"
 
 class Servo
 {

@@ -71,6 +71,7 @@ target_link_libraries(AeroHAWKS2026
     hardware_adc
     pico_multicore
     hardware_pwm
+    hardware_clocks
 )
 
 # Add include directory

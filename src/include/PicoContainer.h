@@ -20,6 +20,7 @@
 #include "Stepper.h"
 #include "LinearActuator.h"
 #include "KalmanFilter.h"
+#include "Servo.h"
 #pragma endregion
 
 enum State
