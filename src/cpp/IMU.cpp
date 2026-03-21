@@ -27,6 +27,7 @@ void IMU::init()
     // Wake up the MPU6050 by writing 0 to the power management register (0x6B)
     uint8_t wake_command[2] = {0x6B, 0x00};
     i2c_write_blocking(i2c_port, m_address, wake_command, 2, false);
+    sleep_ms(100); // Allow MPU6050 to stabilize after wake-up before configuring
     // Set accelerometer full-scale range to +-16g (AFS_SEL = 0b11 -> 0x18 to register 0x1C)
     uint8_t accel_config[2] = {0x1C, 0x18};
     i2c_write_blocking(i2c_port, m_address, accel_config, 2, false);
@@ -39,7 +40,9 @@ void IMU::init()
 /// @param z Pointer to store the Z-axis acceleration value.
 void IMU::read_accelerometer(float *x, float *y, float *z)
 {
+    uint8_t reg = 0x3B; // ACCEL_XOUT_H
     uint8_t accel_data[6]; // 6 bytes for X, Y, Z (2 bytes each)
+    i2c_write_blocking(i2c_port, m_address, &reg, 1, true); // Set register pointer
     i2c_read_blocking(i2c_port, m_address, accel_data, 6, false);
     // Convert the raw data to m/s^2 (assuming a sensitivity of 16384 LSB/g for the MPU6050)
     *x = (int16_t)((accel_data[0] << 8) | accel_data[1]) / MPUConstants::ACCEL_SENSITIVITY * MPUConstants::GRAVITY;
@@ -55,7 +58,9 @@ void IMU::read_accelerometer(float *x, float *y, float *z)
 /// @param z Pointer to store the Z-axis angular velocity value.
 void IMU::read_gyroscope(float *x, float *y, float *z)
 {
+    uint8_t reg = 0x43; // GYRO_XOUT_H
     uint8_t gyro_data[6]; // 6 bytes for X, Y, Z (2 bytes each)
+    i2c_write_blocking(i2c_port, m_address, &reg, 1, true); // Set register pointer
     i2c_read_blocking(i2c_port, m_address, gyro_data, 6, false);
     // Convert the raw data to degrees per second (assuming a sensitivity of 131 LSB/deg/s for the MPU6050)
     *x = (int16_t)((gyro_data[0] << 8) | gyro_data[1]) / 131.0f;
@@ -69,11 +74,42 @@ void IMU::read_gyroscope(float *x, float *y, float *z)
 /// @param temp Pointer to store the temperature value in degrees Celsius.
 void IMU::read_temperature(float *temp)
 {
+    uint8_t reg = 0x41; // TEMP_OUT_H
     uint8_t temp_data[2]; // 2 bytes for temperature
+    i2c_write_blocking(i2c_port, m_address, &reg, 1, true); // Set register pointer
     i2c_read_blocking(i2c_port, m_address, temp_data, 2, false);
     // Convert the raw data to degrees Celsius (using the formula from the MPU6050 datasheet)
     int16_t raw_temp = (temp_data[0] << 8) | temp_data[1];
     *temp = raw_temp / 340.0f + 36.53f; // Convert to °C
+}
+#pragma endregion
+
+#pragma region Read All (Burst)
+/// @brief Reads all sensor data in a single 14-byte burst read from registers 0x3B-0x48.
+///        This is the MPU6050's recommended read pattern: Accel(6) + Temp(2) + Gyro(6).
+void IMU::read_all(float *ax, float *ay, float *az,
+                   float *gx, float *gy, float *gz,
+                   float *temp)
+{
+    uint8_t reg = 0x3B; // Starting register (ACCEL_XOUT_H)
+    uint8_t buf[14];
+
+    i2c_write_blocking(i2c_port, m_address, &reg, 1, true);
+    i2c_read_blocking(i2c_port, m_address, buf, 14, false);
+
+    // Accel: bytes 0-5 (registers 0x3B-0x40)
+    *ax = (int16_t)((buf[0] << 8) | buf[1]) / MPUConstants::ACCEL_SENSITIVITY * MPUConstants::GRAVITY;
+    *ay = (int16_t)((buf[2] << 8) | buf[3]) / MPUConstants::ACCEL_SENSITIVITY * MPUConstants::GRAVITY;
+    *az = (int16_t)((buf[4] << 8) | buf[5]) / MPUConstants::ACCEL_SENSITIVITY * MPUConstants::GRAVITY;
+
+    // Temp: bytes 6-7 (registers 0x41-0x42)
+    int16_t raw_temp = (buf[6] << 8) | buf[7];
+    *temp = raw_temp / 340.0f + 36.53f;
+
+    // Gyro: bytes 8-13 (registers 0x43-0x48)
+    *gx = (int16_t)((buf[8]  << 8) | buf[9])  / MPUConstants::GYRO_SENSITIVITY;
+    *gy = (int16_t)((buf[10] << 8) | buf[11]) / MPUConstants::GYRO_SENSITIVITY;
+    *gz = (int16_t)((buf[12] << 8) | buf[13]) / MPUConstants::GYRO_SENSITIVITY;
 }
 #pragma endregion
 

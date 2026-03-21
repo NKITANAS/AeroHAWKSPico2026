@@ -18,7 +18,7 @@ PicoContainer::PicoContainer()
     m_imu.init();
     m_moisture_sensor_1.init();
     m_moisture_sensor_2.init();
-    m_altimeter.init();
+    // m_altimeter.init(); // TEMPORARILY DISABLED — pins 8/9 on i2c0 are breaking the bus
 
     // Set initial speed and orientation
     speed_x = 0;
@@ -31,6 +31,8 @@ PicoContainer::PicoContainer()
 
     filtered_altitude = 0;
     filtered_velocity = 0;
+
+    start_signal_received = false;
 
     // Initialize Kalman filter for vertical velocity estimation
     // accel_variance: accelerometer noise (higher = trust accel less)
@@ -80,18 +82,21 @@ void PicoContainer::main_loop()
 
         if (current_state == State::IDLE)
         {
-            if (filtered_velocity > 0.5) // Simple condition to detect launch (adjust threshold as needed)
+            if (filtered_velocity > 0.5 && start_signal_received) // Simple condition to detect launch (adjust threshold as needed)
             {
+                m_ascent_start_time = get_absolute_time(); // Record the time of ascent start
                 current_state = State::ASCENT; // Transition to ASCENT state
             }
         }
         else if (current_state == State::ASCENT)
         {
 
-
-            printf("ALT: %.2f m, VEL: %.2f m/s\n", filtered_altitude, filtered_velocity); // Debug output
-
-            if (filtered_velocity < 0.5 && filtered_velocity > -0.5 && altitude < 10) // Simple condition to detect landing (adjust thresholds as needed)
+            if (absolute_time_diff_us(m_ascent_start_time, get_absolute_time()) < 30000000) // After 30 seconds of ascent, stop trnasmitting to be able to recieve the landing signal
+            {
+                printf("ALT: %.2f m, VEL: %.2f m/s\n", filtered_altitude, filtered_velocity); // Debug output
+            }
+            // Use the Kalman-filtered altitude (stable) and an absolute-velocity check
+            if (fabsf(filtered_velocity) < 0.5f && filtered_altitude < 10.0f && !land_manual_interrupt_recieved)
             {
                 sleep_ms(5000);
                 current_state = State::LANDED; // Transition to LANDED state
@@ -103,32 +108,16 @@ void PicoContainer::main_loop()
             // We know that after landing, it will lay flat on it's side. The accelerometer gives a value of 9.8 when still, and they will be only on x and y axis.
             // This can easily be used to determine the optimal window to the ground for the moisture senosor.
             /*
-                |  /
-                | /
+                |  / 
+                | /  
             ____|/___
-                |
-                |
+                |    
+                |    
             */
             // First, calibrate the stepper to ensure it is in a known position
             m_stepper.calibrate();
-            float angle = atan2(accel_y, accel_x) * 100 / M_PI; // Calculate steps needed to rotate to the optimal position (assuming 200 steps per revolution, adjust as needed)
+            float angle = atan2(accel_y, accel_x) * 360 / M_PI; // Calculate angle needed to rotate to the optimal position
             
-            if (angle > 0)
-            {
-                if (angle < 20)
-                {
-                    m_stepper.step_forward(static_cast<int>(20)); // Rotate stepper to the optimal position
-                }
-                m_stepper.step_forward(static_cast<int>(angle)); // Rotate stepper to the optimal position
-            }
-            else
-            {
-                if (angle > -20)
-                {
-                    m_stepper.step_backward(static_cast<int>(20)); // Rotate stepper to the optimal position
-                }
-                m_stepper.step_backward(static_cast<int>(-angle)); // Rotate stepper to the optimal position
-            }
             
         }
         sleep_us(500); // small delay to reduce CPU usage
@@ -154,6 +143,30 @@ void PicoContainer::core2_loop()
         // Calculate dt in seconds
         float dt = absolute_time_diff_us(m_old_time, m_current_time) * 1e-6f;
 
+        std::string msg = get_serial_input();
+
+        // Message Processing
+        if      (msg == "LAND")
+        {
+            // If we receive a "LAND" command from the Raspberry Pi, transition to the LANDED state immediately
+            current_state = State::LANDED;
+        }
+        else if (msg == "STOPLAND")
+        {
+            // If we receive a "STOPLAND" command from the Raspberry Pi, transition back to the ASCENT state immediately
+            current_state = State::ASCENT; 
+            land_manual_interrupt_recieved = true; // Set the flag to indicate that a manual interrupt has been received to stop the landing sequence
+        }
+        else if (msg == "START")
+        {
+            // If we receive a "START" command from the Raspberry Pi, transition to the ASCENT state immediately
+            current_state = State::ASCENT;
+        }
+        else if (msg == "PING")
+        {
+            printf("Saw your message!\n");
+        }
+
         /*
         // Use time to derive speed (simple integration, kept for X/Y axes)
         speed_x += accel_x * dt;
@@ -168,15 +181,82 @@ void PicoContainer::core2_loop()
 
         // Write to the shared variables
         critical_section_enter_blocking(&m_data_lock); // Enter critical section to safely update shared data
-        accel_x = accel_x_temp;
-        accel_y = accel_y_temp;
-        accel_z = accel_z_temp;
-        gyro_x = gyro_x_temp;
-        gyro_y = gyro_y_temp;
-        gyro_z = gyro_z_temp;
-        temperature = temperature_temp;
+        accel_x      = accel_x_temp;
+        accel_y      = accel_y_temp;
+        accel_z      = accel_z_temp;
+        gyro_x       = gyro_x_temp;
+        gyro_y       = gyro_y_temp;
+        gyro_z       = gyro_z_temp;
+        temperature  = temperature_temp;
+        serial_input = msg;
         critical_section_exit(&m_data_lock); // Exit critical section
         sleep_us(500); // small delay to reduce CPU usage
+    }
+}
+#pragma endregion
+
+#pragma region Serial Input
+/// @brief Function that listens for messages from the rpi over UART
+/// @return Message recieved(if any)(consider using a pointer)
+std::string PicoContainer::get_serial_input()
+{
+    // Non-blocking read: drain all available characters into the buffer
+    int ch;
+    while ((ch = getchar_timeout_us(0)) != PICO_ERROR_TIMEOUT)
+    {
+        if (ch == '\n' || ch == '\r')
+        {
+            if (m_buffer_pos > 0)
+            {
+                // Null-terminate and build string, then reset buffer
+                m_buffer[m_buffer_pos] = '\0';
+                std::string message(m_buffer, m_buffer_pos);
+                m_buffer_pos = 0;
+                return message;
+            }
+            // Skip empty lines
+            continue;
+        }
+
+        // Guard against buffer overflow
+        if (m_buffer_pos < static_cast<int>(sizeof(m_buffer)) - 1)
+        {
+            m_buffer[m_buffer_pos++] = static_cast<char>(ch);
+        }
+    }
+
+    // No complete line yet
+    return std::string{};
+}
+#pragma endregion
+
+#pragma region Tests
+/// @brief A function to test individual components without flight logic (if TEST_MODE is true)
+void PicoContainer::test()
+{
+    m_servo.angle_servo(180); // Test servo by setting it to 180 degrees
+    printf("Set servo to 180 degrees\n");
+    sleep_ms(1000);
+    m_servo.angle_servo(90);  // Test servo by setting it to 90 degrees
+    printf("Set servo to 90 degrees\n");
+    sleep_ms(1000);
+    m_servo.angle_servo(45);  // Test servo by setting it to 45 degrees
+    printf("Set servo to 45 degrees\n");
+    sleep_ms(1000);
+    m_servo.angle_servo(0);  // Test servo by setting it back to 0 degrees
+    printf("Set servo back to 0 degrees\n");
+    sleep_ms(1000);
+    while (true)
+    {
+        m_imu.read_all(
+            const_cast<float*>(&accel_x), const_cast<float*>(&accel_y), const_cast<float*>(&accel_z),
+            const_cast<float*>(&gyro_x),  const_cast<float*>(&gyro_y),  const_cast<float*>(&gyro_z),
+            const_cast<float*>(&temperature));
+        printf("ACCEL: %.2f %.2f %.2f | GYRO: %.2f %.2f %.2f | TEMP: %.2f\n",
+            accel_x, accel_y, accel_z,
+            gyro_x,  gyro_y,  gyro_z,
+            temperature);
+        sleep_ms(1000);
     }
 }
 #pragma endregion

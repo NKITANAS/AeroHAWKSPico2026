@@ -6,6 +6,8 @@
 
 namespace Constants
 {
+    // TEST MODE: Run test() rather than main_loop() to test individual components without flight logic
+    constexpr auto TEST_MODE                      = true;
     // Conversion factor for ADC readings to voltage (assuming a 12-bit ADC and 3.3V reference)
     constexpr auto CONVERSION_FACTOR             = 3.3f / (1 << 12); 
 
@@ -13,6 +15,7 @@ namespace Constants
     constexpr auto IMU_I2C_ADDRESS               = 0x68;       // I2C address for the MPU6050 IMU sensor
     constexpr auto IMU_SDA_PIN                   = 4;          // GPIO pin number for I2C SDA
     constexpr auto IMU_SCL_PIN                   = 5;          // GPIO pin number for I2C SCL
+    constexpr auto IMU_CONFIGURED_BEFORE_ACCEL   = true;       // Apparently the pull ups are fighting each other, causing corrupt data. They dont need to be in 2 places
 
     // Moisture Sensors
     constexpr auto MOISTURE_SENSOR_1_PIN         = 26;         // GPIO pin number for soil moisture sensor 1 (ADC channel 0)
@@ -22,8 +25,8 @@ namespace Constants
 
     // Altimeter
     constexpr auto ALTIMITER_I2C_ADDRESS         = 0x77;       // I2C address for the BMP280 altimeter sensor
-    constexpr auto ALTIMITER_SDA_PIN             = 8;          // GPIO pin number for I2C SDA
-    constexpr auto ALTIMITER_SCL_PIN             = 9;          // GPIO pin number for I2C SCL
+    constexpr auto ALTIMITER_SDA_PIN             = 6;          // GPIO pin number for I2C SDA
+    constexpr auto ALTIMITER_SCL_PIN             = 7;          // GPIO pin number for I2C SCL
     constexpr auto GAS_CONSTANT                  = 8.3144598f; // Universal gas constant in J/(mol*K)
     constexpr auto GRAVITY                       = 9.81f;      // Acceleration due to gravity in m/s^2
 
@@ -47,10 +50,9 @@ namespace Constants
     constexpr auto ACTUATOR_2_PIN_2              = 21;         // GPIO pin number for linear actuator 2 control pin 2
 
     // Servo Motor(if used)
-    constexpr auto STEPPER_PWM_PIN               = 22;         // GPIO pin number for servo motor PWM control
+    constexpr auto SERVO_PWM_PIN                 = 22;         // GPIO pin number for servo motor PWM control
 
-    constexpr auto USE_UART                      = false;       // Set to true to enable UART communication (for debugging or additional sensors)
+    constexpr auto USE_UART                      = true;       // Set to true to enable UART communication (for debugging or additional sensors)
     constexpr auto TRANSMIT_ONLY                 = false;       // Set to true to skip all flight logic and only transmit collected sensor data every loop iteration
-
 
 }

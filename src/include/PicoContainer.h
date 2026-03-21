@@ -3,6 +3,7 @@
 #pragma region Includes
 #include <cstdio>
 #include <cstring>
+#include <string>
 #include <optional>
 
 #include "pico/stdlib.h"
@@ -36,20 +37,25 @@ class PicoContainer
         explicit PicoContainer();
         void     main_loop();
         void     core2_loop();
+        void     test(); // Function to test individual components without flight logic (if TEST_MODE is true)
 
-        volatile float    accel_x, accel_y, accel_z; // Accelerometer data in m/s^2
-        volatile float    gyro_x, gyro_y, gyro_z;    // Gyroscope data in degrees/s
-        volatile float    temperature;               // Temperature data in degrees Celsius
-        volatile float    altitude;                  // Altitude data in meters
-        volatile float    speed_x, speed_y, speed_z; // Velocity derived from accel data
-        volatile float    orint_x, orint_y, orint_z; // Orientation derived from gyro data
-        volatile float    filtered_altitude;         // Kalman-filtered altitude (m)
-        volatile float    filtered_velocity;         // Kalman-filtered vertical velocity (m/s)
-        volatile uint16_t moisture_1, moisture_2;    // Moisture level from the sensors
-
-        volatile State current_state = IDLE; // Current state of the flight, initialized to IDLE
-        
     private:
+        volatile State       current_state = IDLE;           // Current state of the flight, initialized to IDLE
+        volatile float       accel_x, accel_y, accel_z;      // Accelerometer data in m/s^2
+        volatile float       gyro_x, gyro_y, gyro_z;         // Gyroscope data in degrees/s
+        volatile float       temperature;                    // Temperature data in degrees Celsius
+        volatile float       altitude;                       // Altitude data in meters
+        volatile float       speed_x, speed_y, speed_z;      // Velocity derived from accel data
+        volatile float       orint_x, orint_y, orint_z;      // Orientation derived from gyro data
+        volatile float       filtered_altitude;              // Kalman-filtered altitude (m)
+        volatile float       filtered_velocity;              // Kalman-filtered vertical velocity (m/s)
+        volatile uint16_t    moisture_1, moisture_2;         // Moisture level from the sensors
+        volatile bool        start_signal_received;          // Flag to indicate if a start signal has been received from the Raspberry Pi
+        volatile bool        land_signal_received;           // Flag to indicate if a land signal has been received from the Raspberry Pi
+        volatile bool        land_manual_interrupt_recieved; // Flag to indicate if a manual interrupt signal has been received from the Raspberry Pi to stop landing sequence
+                 std::string serial_input;                   // Buffer for serial input from Raspberry Pi (if using UART)
+
+
         IMU                m_imu{Constants::IMU_I2C_ADDRESS, Constants::IMU_SDA_PIN, Constants::IMU_SCL_PIN};
         SoilMoistureSensor m_moisture_sensor_1{Constants::MOISTURE_SENSOR_1_PIN, Constants::MOISTURE_SENSOR_1_ADC_CHANNEL};
         SoilMoistureSensor m_moisture_sensor_2{Constants::MOISTURE_SENSOR_2_PIN, Constants::MOISTURE_SENSOR_2_ADC_CHANNEL};
@@ -57,6 +63,7 @@ class PicoContainer
         Stepper            m_stepper{Constants::STEPPER_DIR_PIN, Constants::STEPPER_STEP_PIN, Constants::STEPPER_ENABLE_PIN, Constants::STEPPER_SLEEP_PIN};
         LinearActuator     m_actuator_1{Constants::ACTUATOR_1_PIN_1, Constants::ACTUATOR_1_PIN_2};
         LinearActuator     m_actuator_2{Constants::ACTUATOR_2_PIN_1, Constants::ACTUATOR_2_PIN_2};
+        Servo              m_servo{Constants::SERVO_PWM_PIN};
         KalmanFilter       m_kalman_filter; // Kalman filter for altitude/velocity estimation
 
         char m_buffer[64]; // Buffer for USB
@@ -64,11 +71,15 @@ class PicoContainer
 
         absolute_time_t    m_old_time;
         absolute_time_t    m_current_time;
+        absolute_time_t    m_ascent_start_time;
 
         critical_section_t m_data_lock; // Critical section for thread-safe access to shared data
 
         float accel_x_temp, accel_y_temp, accel_z_temp; // Temporary variables for accelerometer data processing
         float gyro_x_temp, gyro_y_temp, gyro_z_temp;    // Temporary variables for gyroscope data processing
         float temperature_temp;                         // Temporary variable for temperature data processing
+
+        std::string get_serial_input();                // Helper function to format sensor data for serial transmission
+        
 
 };

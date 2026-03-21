@@ -22,7 +22,7 @@ void LinearActuator::extend()
 {
     gpio_put(m_pin_1, 1); // Activate pin 1 to extend
     gpio_put(m_pin_2, 0); // Ensure pin 2 is off
-    sleep_ms(3000);       // Simulate the time taken to fully extend (adjust as needed)
+    sleep_ms(3000);       // Simulate the time taken to fully extend (literally perfect btw)
     gpio_put(m_pin_1, 0); // Turn off pin 1 after extending
 }
 #pragma endregion
@@ -33,7 +33,7 @@ void LinearActuator::retract()
 {
     gpio_put(m_pin_1, 0); // Ensure pin 1 is off
     gpio_put(m_pin_2, 1); // Activate pin 2 to retract
-    sleep_ms(3000);       // Simulate the time taken to fully retract (adjust as needed)
+    sleep_ms(3000);       // Simulate the time taken to fully retract (literally perfect btw)
     gpio_put(m_pin_2, 0); // Turn off pin 2 after retracting
 }
 #pragma endregion

@@ -25,6 +25,9 @@ class IMU
         void     read_accelerometer(float *x, float *y, float *z);
         void     read_gyroscope(float *x, float *y, float *z);
         void     read_temperature(float *temp);
+        void     read_all(float *ax, float *ay, float *az,
+                          float *gx, float *gy, float *gz,
+                          float *temp);
     private:
         // I2C address of the IMU sensor
         uint8_t     m_address;
