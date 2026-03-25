@@ -33,7 +33,7 @@ void IMU::init()
     i2c_write_blocking(i2c_port, m_address, accel_config, 2, false);
 }
 
-#pragma region Read MPUerometer
+#pragma region Read Accelerometer
 /// @brief Reads the accelerometer data from the IMU sensor.
 /// @param x Pointer to store the X-axis acceleration value.
 /// @param y Pointer to store the Y-axis acceleration value.

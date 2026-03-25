@@ -4,8 +4,8 @@
 /// @brief Initializes the PicoContainer, which manages the IMU and soil moisture sensor, and handles communication with the Raspberry Pi.
 PicoContainer::PicoContainer() 
 {
-    // init things
-    stdio_init_all(); // Initialize all standard IO (for USB communication)
+    // Init things
+    stdio_init_all();
     if (Constants::USE_UART)
     {
         // Initialize UART for debugging or additional sensors
@@ -18,8 +18,8 @@ PicoContainer::PicoContainer()
     m_imu.init();
     m_moisture_sensor_1.init();
     m_moisture_sensor_2.init();
-    // m_altimeter.init(); // TEMPORARILY DISABLED — pins 8/9 on i2c0 are breaking the bus
-
+    m_altimeter.init(); 
+    
     // Set initial speed and orientation
     speed_x = 0;
     speed_y = 0;
@@ -38,6 +38,8 @@ PicoContainer::PicoContainer()
     // accel_variance: accelerometer noise (higher = trust accel less)
     // altitude_variance: barometer noise (higher = trust baro less)
     m_kalman_filter.init(0.0f, 1.0f, 2.0f);
+    m_imu.read_temperature(&temperature); // Read initial temperature for altitude calculation
+    m_altimeter.read_altitude(&altitude, 273.15f + temperature); // Read initial altitude to set the Kalman filter's initial state
 
     // Find current time
     m_current_time = get_absolute_time();
@@ -63,10 +65,17 @@ void PicoContainer::main_loop()
         critical_section_enter_blocking(&m_data_lock);       // Enter critical section to safely read shared data
         float vertical_accel = accel_z - Constants::GRAVITY;
         critical_section_exit(&m_data_lock);                 // Exit critical section
+        if (full_kalman) 
+        {
+            m_kalman_filter.update(vertical_accel, altitude, dt);
+        }
+        else 
+        {
+            m_kalman_filter.update(vertical_accel, dt);
+            filtered_altitude = m_kalman_filter.get_altitude();
+            filtered_velocity = m_kalman_filter.get_velocity();
+        }
 
-        m_kalman_filter.update(vertical_accel, dt);
-        filtered_altitude = m_kalman_filter.get_altitude();
-        filtered_velocity = m_kalman_filter.get_velocity();
 
         if constexpr (Constants::TRANSMIT_ONLY)
         {
@@ -91,9 +100,13 @@ void PicoContainer::main_loop()
         else if (current_state == State::ASCENT)
         {
 
-            if (absolute_time_diff_us(m_ascent_start_time, get_absolute_time()) < 30000000) // After 30 seconds of ascent, stop trnasmitting to be able to recieve the landing signal
+            if (absolute_time_diff_us(m_ascent_start_time, get_absolute_time()) < 60000000) // After 60 seconds of flight, stop transmitting to be able to receive the landing signal
             {
                 printf("ALT: %.2f m, VEL: %.2f m/s\n", filtered_altitude, filtered_velocity); // Debug output
+            }
+            else
+            {
+                full_kalman = true; // After 90 seconds, switch to full Kalman filter mode (with barometer) for more stable altitude estimates during landing
             }
             // Use the Kalman-filtered altitude (stable) and an absolute-velocity check
             if (fabsf(filtered_velocity) < 0.5f && filtered_altitude < 10.0f && !land_manual_interrupt_recieved)
@@ -107,7 +120,9 @@ void PicoContainer::main_loop()
             // Once landed, determine the payload's orientation using the accelerometer
             // We know that after landing, it will lay flat on it's side. The accelerometer gives a value of 9.8 when still, and they will be only on x and y axis.
             // This can easily be used to determine the optimal window to the ground for the moisture senosor.
-            /*
+            /*        m_kalman_filter.update(vertical_accel, dt);
+            filtered_altitude = m_kalman_filter.get_altitude();
+            filtered_velocity = m_kalman_filter.get_velocity();
                 |  / 
                 | /  
             ____|/___
@@ -135,6 +150,7 @@ void PicoContainer::core2_loop()
         m_imu.read_accelerometer(const_cast<float*>(&accel_x_temp), const_cast<float*>(&accel_y_temp), const_cast<float*>(&accel_z_temp));
         m_imu.read_gyroscope(const_cast<float*>(&gyro_x_temp), const_cast<float*>(&gyro_y_temp), const_cast<float*>(&gyro_z_temp));
         m_imu.read_temperature(const_cast<float*>(&temperature_temp));
+        m_altimeter.read_altitude(const_cast<float*>(&altitude_temp), temperature_temp);
 
         // Find the current time and update the old time
         m_old_time     = m_current_time;
@@ -164,7 +180,7 @@ void PicoContainer::core2_loop()
         }
         else if (msg == "PING")
         {
-            printf("Saw your message!\n");
+            printf("Saw your message! Pong!\n");
         }
 
         /*
@@ -189,6 +205,7 @@ void PicoContainer::core2_loop()
         gyro_z       = gyro_z_temp;
         temperature  = temperature_temp;
         serial_input = msg;
+        altitude     = altitude_temp;
         critical_section_exit(&m_data_lock); // Exit critical section
         sleep_us(500); // small delay to reduce CPU usage
     }
@@ -234,29 +251,15 @@ std::string PicoContainer::get_serial_input()
 /// @brief A function to test individual components without flight logic (if TEST_MODE is true)
 void PicoContainer::test()
 {
-    m_servo.angle_servo(180); // Test servo by setting it to 180 degrees
-    printf("Set servo to 180 degrees\n");
-    sleep_ms(1000);
-    m_servo.angle_servo(90);  // Test servo by setting it to 90 degrees
-    printf("Set servo to 90 degrees\n");
-    sleep_ms(1000);
-    m_servo.angle_servo(45);  // Test servo by setting it to 45 degrees
-    printf("Set servo to 45 degrees\n");
-    sleep_ms(1000);
-    m_servo.angle_servo(0);  // Test servo by setting it back to 0 degrees
-    printf("Set servo back to 0 degrees\n");
-    sleep_ms(1000);
     while (true)
     {
-        m_imu.read_all(
-            const_cast<float*>(&accel_x), const_cast<float*>(&accel_y), const_cast<float*>(&accel_z),
-            const_cast<float*>(&gyro_x),  const_cast<float*>(&gyro_y),  const_cast<float*>(&gyro_z),
-            const_cast<float*>(&temperature));
-        printf("ACCEL: %.2f %.2f %.2f | GYRO: %.2f %.2f %.2f | TEMP: %.2f\n",
-            accel_x, accel_y, accel_z,
-            gyro_x,  gyro_y,  gyro_z,
-            temperature);
-        sleep_ms(1000);
+        m_actuator_1.extend();
+        m_actuator_2.extend();
+        sleep_ms(3000);
+        m_actuator_1.retract();
+        m_actuator_2.retract();
+        sleep_ms(3000);
     }
+    
 }
 #pragma endregion

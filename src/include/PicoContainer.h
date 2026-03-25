@@ -40,19 +40,20 @@ class PicoContainer
         void     test(); // Function to test individual components without flight logic (if TEST_MODE is true)
 
     private:
-        volatile State       current_state = IDLE;           // Current state of the flight, initialized to IDLE
-        volatile float       accel_x, accel_y, accel_z;      // Accelerometer data in m/s^2
-        volatile float       gyro_x, gyro_y, gyro_z;         // Gyroscope data in degrees/s
-        volatile float       temperature;                    // Temperature data in degrees Celsius
-        volatile float       altitude;                       // Altitude data in meters
-        volatile float       speed_x, speed_y, speed_z;      // Velocity derived from accel data
-        volatile float       orint_x, orint_y, orint_z;      // Orientation derived from gyro data
-        volatile float       filtered_altitude;              // Kalman-filtered altitude (m)
-        volatile float       filtered_velocity;              // Kalman-filtered vertical velocity (m/s)
-        volatile uint16_t    moisture_1, moisture_2;         // Moisture level from the sensors
-        volatile bool        start_signal_received;          // Flag to indicate if a start signal has been received from the Raspberry Pi
-        volatile bool        land_signal_received;           // Flag to indicate if a land signal has been received from the Raspberry Pi
-        volatile bool        land_manual_interrupt_recieved; // Flag to indicate if a manual interrupt signal has been received from the Raspberry Pi to stop landing sequence
+        State       current_state = IDLE;           // Current state of the flight, initialized to IDLE
+        bool        full_kalman = false;            // Flag to indicate whether to use the full Kalman filter (with barometer) or just accelerometer integration (for testing)
+        float       accel_x, accel_y, accel_z;      // Accelerometer data in m/s^2
+        float       gyro_x, gyro_y, gyro_z;         // Gyroscope data in degrees/s
+        float       temperature;                    // Temperature data in degrees Celsius
+        float       altitude;                       // Altitude data in meters
+        float       speed_x, speed_y, speed_z;      // Velocity derived from accel data
+        float       orint_x, orint_y, orint_z;      // Orientation derived from gyro data
+        float       filtered_altitude;              // Kalman-filtered altitude (m)
+        float       filtered_velocity;              // Kalman-filtered vertical velocity (m/s)
+        uint16_t    moisture_1, moisture_2;         // Moisture level from the sensors
+        bool        start_signal_received;          // Flag to indicate if a start signal has been received from the Raspberry Pi
+        bool        land_signal_received;           // Flag to indicate if a land signal has been received from the Raspberry Pi
+        bool        land_manual_interrupt_recieved; // Flag to indicate if a manual interrupt signal has been received from the Raspberry Pi to stop landing sequence
                  std::string serial_input;                   // Buffer for serial input from Raspberry Pi (if using UART)
 
 
@@ -78,6 +79,7 @@ class PicoContainer
         float accel_x_temp, accel_y_temp, accel_z_temp; // Temporary variables for accelerometer data processing
         float gyro_x_temp, gyro_y_temp, gyro_z_temp;    // Temporary variables for gyroscope data processing
         float temperature_temp;                         // Temporary variable for temperature data processing
+        float altitude_temp;                            // Temporary variable for altitude
 
         std::string get_serial_input();                // Helper function to format sensor data for serial transmission
         

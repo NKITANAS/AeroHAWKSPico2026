@@ -17,6 +17,6 @@ void Servo::angle_servo(uint angle)
 {
     if (angle > 180) angle = 180; // clamp
     // Map 0-180° to 500-2500µs (full servo travel range)
-    uint32_t pulse_us = 300 + (angle * 2000 / 180);
+    uint32_t pulse_us = 500 + (angle * 2000 / 180);
     pwm_set_gpio_level(m_pwm_pin, pulse_us);
 }
