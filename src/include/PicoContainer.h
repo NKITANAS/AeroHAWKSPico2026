@@ -5,6 +5,7 @@
 #include <cstring>
 #include <string>
 #include <optional>
+#include <vector>
 
 #include "pico/stdlib.h"
 #include "pico/util/queue.h"
@@ -28,7 +29,8 @@ enum State
 {
     IDLE,
     ASCENT,
-    LANDED
+    LANDED,
+    TRANSMISSION
 };
 
 class PicoContainer
@@ -54,7 +56,11 @@ class PicoContainer
         bool        start_signal_received;          // Flag to indicate if a start signal has been received from the Raspberry Pi
         bool        land_signal_received;           // Flag to indicate if a land signal has been received from the Raspberry Pi
         bool        land_manual_interrupt_recieved; // Flag to indicate if a manual interrupt signal has been received from the Raspberry Pi to stop landing sequence
-                 std::string serial_input;                   // Buffer for serial input from Raspberry Pi (if using UART)
+        std::string serial_input;                   // Buffer for serial input from Raspberry Pi (if using UART)
+        bool        calculate_moisture_1;           // Flag to indicate whether to calculate moisture for sensor 1 (used in test mode)
+        bool        calculate_moisture_2;           // Flag to indicate whether to calculate moisture for sensor 2 (used in test mode)
+        std::vector<float> moisture_readings;       // Vector to store moisture readings for averaging
+        
 
 
         IMU                m_imu{Constants::IMU_I2C_ADDRESS, Constants::IMU_SDA_PIN, Constants::IMU_SCL_PIN};
@@ -76,10 +82,11 @@ class PicoContainer
 
         critical_section_t m_data_lock; // Critical section for thread-safe access to shared data
 
-        float accel_x_temp, accel_y_temp, accel_z_temp; // Temporary variables for accelerometer data processing
-        float gyro_x_temp, gyro_y_temp, gyro_z_temp;    // Temporary variables for gyroscope data processing
-        float temperature_temp;                         // Temporary variable for temperature data processing
-        float altitude_temp;                            // Temporary variable for altitude
+        float    accel_x_temp, accel_y_temp, accel_z_temp; // Temporary variables for accelerometer data processing
+        float    gyro_x_temp, gyro_y_temp, gyro_z_temp;    // Temporary variables for gyroscope data processing
+        float    temperature_temp;                         // Temporary variable for temperature data processing
+        float    altitude_temp;                            // Temporary variable for altitude
+        uint16_t moisture_1_temp, moisture_2_temp;         // Temporary variables for moisture sensor data processing
 
         std::string get_serial_input();                // Helper function to format sensor data for serial transmission
         

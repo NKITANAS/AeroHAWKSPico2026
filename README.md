@@ -1,7 +1,8 @@
 # AeroHAWKS 2026 Pico Code
 ## Features
 * Auto-integrate gyro data and Acceleration to get orientation and speed, respectively
-* Calculates Altitude
+* Calculates Altitude using a barometer
+* All pins are stored in Constants.h so changing them is easy
 * Runs in multicore -> Data is always being collected
 ## How to Run
 This code, once flashed on a pico, will run automatically when powered. To flash:
