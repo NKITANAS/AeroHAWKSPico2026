@@ -22,12 +22,10 @@ void SoilMoistureSensor::init()
 
 #pragma region Read Moisture
 /// @brief Reads the moisture level from the soil moisture sensor.
-/// @return The moisture level as a float between 0.0 (completely dry) and 1200 (completely wet).
-uint16_t SoilMoistureSensor::read_moisture()
+/// @return Moisture as a percentage: 0.0 (dry) to 100.0 (wet).
+float SoilMoistureSensor::read_moisture()
 {
-    // Read the raw ADC value from the specified channel
     adc_select_input(m_adc_channel);
-    uint16_t value = adc_read()*Constants::CONVERSION_FACTOR; // Convert to voltage using the conversion factor
-    return value;
+    return (adc_read() / 4095.0f) * 100.0f;
 }
 #pragma endregion

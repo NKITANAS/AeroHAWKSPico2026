@@ -23,7 +23,7 @@ PicoContainer::PicoContainer()
     // Set initial speed and orientation
     speed_x = 0;
     speed_y = 0;
-    speed_z = 0;
+    speed_z = 0; 
 
     orint_x = 0;
     orint_y = 0;
@@ -164,30 +164,17 @@ void PicoContainer::main_loop()
             sleep_ms(2000); // Wait
             current_state = State::TRANSMISSION; // Transition to TRANSMISSION state
         }
-        if (current_state == State::TRANSMISSION)
+        if (current_state == State::TRANSMISSION && !moisture_transmitted)
         {
-            // In transmission, we send the average moisture data every two seconds
-            if (calculate_moisture_1)
+            constexpr int REQUIRED_SAMPLES = 50;
+            if ((int)moisture_readings.size() >= REQUIRED_SAMPLES)
             {
-                // Find the average of the moisture readings for sensor 1
                 float sum = 0;
-                for (float reading : moisture_readings)                
-                {
-                    sum += reading;
-                }
+                for (float r : moisture_readings) sum += r;
                 float average = sum / moisture_readings.size();
-                printf("Average moisture for sensor 1: %.2f\n", average);
-            }
-            if (calculate_moisture_2)
-            {
-                // Find the average of the moisture readings for sensor 2
-                float sum = 0;
-                for (float reading : moisture_readings)                
-                {
-                    sum += reading;
-                }
-                float average = sum / moisture_readings.size();
-                printf("Average moisture for sensor 2: %.2f\n", average);
+                int sensor_id = calculate_moisture_1 ? 1 : 2;
+                printf("Average moisture sensor %d: %.1f%%\n", sensor_id, average);
+                moisture_transmitted = true;
             }
         }
         sleep_us(500); // small delay to reduce CPU usage
@@ -262,11 +249,11 @@ void PicoContainer::core2_loop()
         critical_section_enter_blocking(&m_data_lock); // Enter critical section to safely update shared data
         if (calculate_moisture_1)
         {
-            moisture_readings.push_back(moisture_1_temp); // Add the reading to the vector for averaging later
+            moisture_readings.push_back(moisture_1_temp);
         }
         if (calculate_moisture_2)
         {
-            moisture_readings.push_back(moisture_2_temp); // Add the reading to the vector for averaging later
+            moisture_readings.push_back(moisture_2_temp);
         }
         accel_x      = accel_x_temp;
         accel_y      = accel_y_temp;
