@@ -11,7 +11,8 @@ int main()
         pico_container.main_loop();
     }
     else
-    {          
+    {  
+        multicore_launch_core1([]() { pico_container.core2_loop(); });
         pico_container.test();
     }
 

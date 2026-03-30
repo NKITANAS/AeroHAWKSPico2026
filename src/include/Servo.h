@@ -7,7 +7,7 @@ class Servo
 {
     public:
         explicit Servo(uint pwm_pin);
-        void     angle_servo(uint angle);
+        void     angle_servo(double angle);
     private:
         uint m_pwm_pin, m_slice_num;
 

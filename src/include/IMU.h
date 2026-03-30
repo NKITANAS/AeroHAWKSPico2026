@@ -11,7 +11,7 @@
 namespace MPUConstants
 {
     // REFER TO DATASHEET TO MAKE SENSITIVITY CHANGES: https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-6000-Datasheet1.pdf
-    constexpr auto ACCEL_SENSITIVITY = 2048.0f;  // LSB/g for the MPU6050 at +-16g range
+    constexpr auto ACCEL_SENSITIVITY = 16384.0f;  // LSB/g for the MPU6050 at +-16g range
     constexpr auto GRAVITY           = 9.81f;    // Acceleration due to gravity in m/s^2
     constexpr auto GYRO_SENSITIVITY  = 131.0f;   // LSB/deg/s for the MPU6050 at +-250deg/s range
 }

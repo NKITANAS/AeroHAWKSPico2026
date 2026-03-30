@@ -6,11 +6,6 @@ PicoContainer::PicoContainer()
 {
     // init things
     stdio_init_all(); // Initialize all standard IO (for USB communication)
-    if (Constants::USE_UART)
-    {
-        // Initialize UART for debugging or additional sensors
-        stdio_uart_init_full(uart0, 115200, 0, 1); // uart, baud, tx_pin, rx_pin
-    }
     adc_init();       // Initialize the ADC for soil moisture sensors
     // Initialize the I2C communication for the IMU sensor
     i2c_init(i2c0, 400*1000);
@@ -64,7 +59,14 @@ void PicoContainer::main_loop()
         float vertical_accel = accel_z - Constants::GRAVITY;
         critical_section_exit(&m_data_lock);                 // Exit critical section
 
-        m_kalman_filter.update(vertical_accel, dt);
+        // Barometer is not ventilated until ~60s into flight - use predict-only until then
+        constexpr int64_t BARO_VENTILATION_TIME_US = 60000000; // 60 seconds
+        bool baro_ready = current_state == State::ASCENT &&
+                          absolute_time_diff_us(m_ascent_start_time, get_absolute_time()) > BARO_VENTILATION_TIME_US;
+        if (baro_ready)
+            m_kalman_filter.update(vertical_accel, altitude, dt); // Full baro + accel fusion
+        else
+            m_kalman_filter.update(vertical_accel, dt);           // Accel-only until baro is ventilated
         filtered_altitude = m_kalman_filter.get_altitude();
         filtered_velocity = m_kalman_filter.get_velocity();
 
@@ -82,7 +84,7 @@ void PicoContainer::main_loop()
 
         if (current_state == State::IDLE)
         {
-            if (filtered_velocity > 0.5 && start_signal_received) // Simple condition to detect launch (adjust threshold as needed)
+            if (filtered_velocity > 8 && start_signal_received) // Simple condition to detect launch (adjust threshold as needed)
             {
                 m_ascent_start_time = get_absolute_time(); // Record the time of ascent start
                 current_state = State::ASCENT; // Transition to ASCENT state
@@ -95,7 +97,10 @@ void PicoContainer::main_loop()
             {
                 printf("ALT: %.2f m, VEL: %.2f m/s\n", filtered_altitude, filtered_velocity); // Debug output
             }
-            if (filtered_velocity < 0.5 && filtered_velocity > -0.5 && altitude < 10 && !land_manual_interrupt_recieved) // Simple condition to detect landing (adjust thresholds as needed)
+            // Landing detection: near-zero velocity, low altitude, minimum 70s of flight (baro ventilates at 60s), no manual override
+            constexpr int64_t MIN_FLIGHT_TIME_US = 70000000; // 70 seconds - must be > baro ventilation time (60s)
+            bool min_time_elapsed = absolute_time_diff_us(m_ascent_start_time, get_absolute_time()) > MIN_FLIGHT_TIME_US;
+            if (fabsf(filtered_velocity) < 0.5f && filtered_altitude < 10.0f && min_time_elapsed && !land_manual_interrupt_recieved)
             {
                 sleep_ms(5000);
                 current_state = State::LANDED; // Transition to LANDED state
@@ -115,38 +120,38 @@ void PicoContainer::main_loop()
                 |    
                 |    
             */
-            float angle      = atan2(accel_y, accel_x) * 360 / M_PI; // Calculate angle needed to rotate to the optimal position
+            float angle      = atan2(accel_y, -accel_x) * 360 / M_PI; // Calculate angle needed to rotate to the optimal position
             bool  actuator_1 = false; // Flag to indicate whether to use actuator 1 or 2 for the servo rotation
             // Account for unreachable angles - two ranges: -15-15, 165-195 (adjust as needed based on actual sensor readings and desired orientation). 
             // Other angles are reachable and the servo should be rotated to them
-            if (angle > 15 && angle < 165)
+            if (angle > Constants::MIN_ANGLE_SIDE_1 && angle < Constants::MAX_ANGLE_SIDE_1)
             {
                 m_servo.angle_servo(angle); // Rotate servo to the calculated angle to orient the payload for optimal moisture sensing, actuator 1
                 actuator_1 = true;
             }
-            else if (angle > 195 && angle < 345)
+            else if (angle > Constants::MIN_ANGLE_SIDE_1+180 && angle < Constants::MAX_ANGLE_SIDE_1+180)
             {
                 m_servo.angle_servo(angle - 180); // Rotate servo to the calculated angle to orient the payload for optimal moisture sensing, actuator 2
                 actuator_1 = false;
             }
-            else if (angle > 165 && angle < 180)
+            else if (angle > Constants::MAX_ANGLE_SIDE_1 && angle < (Constants::MAX_ANGLE_SIDE_1+Constants::MIN_ANGLE_SIDE_1+180) / 2)
             {
-                m_servo.angle_servo(160); // Rotate servo to 160 degrees to orient the payload for optimal moisture sensing, actuator 1
+                m_servo.angle_servo(Constants::MAX_ANGLE_SIDE_1); // Rotate servo to 160 degrees to orient the payload for optimal moisture sensing, actuator 1
                 actuator_1 = true;
             }
-            else if (angle > 180 && angle < 195)
+            else if (angle > (Constants::MAX_ANGLE_SIDE_1+Constants::MIN_ANGLE_SIDE_1+180) / 2 && angle < Constants::MIN_ANGLE_SIDE_1+180)
             {
-                m_servo.angle_servo(20); // Rotate servo to 20 degrees to orient the payload for optimal moisture sensing, actuator 2
+                m_servo.angle_servo(Constants::MIN_ANGLE_SIDE_1); // Rotate servo to 20 degrees to orient the payload for optimal moisture sensing, actuator 2
                 actuator_1 = false;
             }
-            else if (angle > 345)
+            else if (angle > Constants::MAX_ANGLE_SIDE_1+180)
             {
-                m_servo.angle_servo(160); // Rotate servo to 160 degrees to orient the payload for optimal moisture sensing, actuator 2
+                m_servo.angle_servo(Constants::MAX_ANGLE_SIDE_1); // Rotate servo to 160 degrees to orient the payload for optimal moisture sensing, actuator 2
                 actuator_1 = false;
             }
-            else if (angle < 15)
+            else if (angle < Constants::MIN_ANGLE_SIDE_1)
             {
-                m_servo.angle_servo(20); // Rotate servo to 20 degrees to orient the payload for optimal moisture sensing, actuator 1
+                m_servo.angle_servo(Constants::MIN_ANGLE_SIDE_1); // Rotate servo to 20 degrees to orient the payload for optimal moisture sensing, actuator 1
                 actuator_1 = true;
             }
             sleep_ms(2000); // Make sure the servo moved and all is fine
@@ -192,6 +197,7 @@ void PicoContainer::core2_loop()
         m_imu.read_accelerometer(const_cast<float*>(&accel_x_temp), const_cast<float*>(&accel_y_temp), const_cast<float*>(&accel_z_temp));
         m_imu.read_gyroscope(const_cast<float*>(&gyro_x_temp), const_cast<float*>(&gyro_y_temp), const_cast<float*>(&gyro_z_temp));
         m_imu.read_temperature(const_cast<float*>(&temperature_temp));
+        m_altimeter.read_altitude(&altitude_temp, temperature_temp); // Read barometric altitude
 
         // Find the current time and update the old time
         m_old_time     = m_current_time;
@@ -262,6 +268,7 @@ void PicoContainer::core2_loop()
         gyro_y       = gyro_y_temp;
         gyro_z       = gyro_z_temp;
         temperature  = temperature_temp;
+        altitude     = altitude_temp;
         serial_input = msg;
         critical_section_exit(&m_data_lock); // Exit critical section
         sleep_us(500); // small delay to reduce CPU usage
@@ -308,28 +315,12 @@ std::string PicoContainer::get_serial_input()
 /// @brief A function to test individual components without flight logic (if TEST_MODE is true)
 void PicoContainer::test()
 {
-    m_servo.angle_servo(180); // Test servo by setting it to 180 degrees
-    printf("Set servo to 180 degrees\n");
-    sleep_ms(1000);
-    m_servo.angle_servo(90);  // Test servo by setting it to 90 degrees
-    printf("Set servo to 90 degrees\n");
-    sleep_ms(1000);
-    m_servo.angle_servo(45);  // Test servo by setting it to 45 degrees
-    printf("Set servo to 45 degrees\n");
-    sleep_ms(1000);
-    m_servo.angle_servo(0);  // Test servo by setting it back to 0 degrees
-    printf("Set servo back to 0 degrees\n");
-    sleep_ms(1000);
     while (true)
     {
-        m_imu.read_accelerometer(const_cast<float*>(&accel_x), const_cast<float*>(&accel_y), const_cast<float*>(&accel_z));
-        m_imu.read_gyroscope(const_cast<float*>(&gyro_x), const_cast<float*>(&gyro_y), const_cast<float*>(&gyro_z));
-        m_imu.read_temperature(const_cast<float*>(&temperature));
-        printf("ACCEL: %.2f %.2f %.2f | GYRO: %.2f %.2f %.2f | TEMP: %.2f\n",
-            accel_x, accel_y, accel_z,
-            gyro_x,  gyro_y,  gyro_z,
-            temperature);
-        sleep_ms(1000);
+        
+        m_actuator_1.retract();
+        
     }
+    
 }
 #pragma endregion

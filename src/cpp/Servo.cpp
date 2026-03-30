@@ -13,7 +13,7 @@ Servo::Servo(uint pwm_pin) : m_pwm_pin(pwm_pin)
     pwm_set_enabled(m_slice_num, true); // Enable the PWM slice
 }
 
-void Servo::angle_servo(uint angle)
+void Servo::angle_servo(double angle)
 {
     if (angle > 180) angle = 180; // clamp
     // Map 0-180° to 500-2500µs (full servo travel range)

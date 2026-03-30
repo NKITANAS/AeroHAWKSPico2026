@@ -68,7 +68,6 @@ class PicoContainer
         SoilMoistureSensor m_moisture_sensor_1{Constants::MOISTURE_SENSOR_1_PIN, Constants::MOISTURE_SENSOR_1_ADC_CHANNEL};
         SoilMoistureSensor m_moisture_sensor_2{Constants::MOISTURE_SENSOR_2_PIN, Constants::MOISTURE_SENSOR_2_ADC_CHANNEL};
         Altimeter          m_altimeter{Constants::ALTIMITER_I2C_ADDRESS, Constants::ALTIMITER_SDA_PIN, Constants::ALTIMITER_SCL_PIN};
-        Stepper            m_stepper{Constants::STEPPER_DIR_PIN, Constants::STEPPER_STEP_PIN, Constants::STEPPER_ENABLE_PIN, Constants::STEPPER_SLEEP_PIN};
         LinearActuator     m_actuator_1{Constants::ACTUATOR_1_PIN_1, Constants::ACTUATOR_1_PIN_2};
         LinearActuator     m_actuator_2{Constants::ACTUATOR_2_PIN_1, Constants::ACTUATOR_2_PIN_2};
         Servo              m_servo{Constants::SERVO_PWM_PIN};

@@ -7,14 +7,14 @@
 namespace Constants
 {
     // TEST MODE: Run test() rather than main_loop() to test individual components without flight logic
-    constexpr auto TEST_MODE                      = true;
+    constexpr auto TEST_MODE                      = false;
     // Conversion factor for ADC readings to voltage (assuming a 12-bit ADC and 3.3V reference)
     constexpr auto CONVERSION_FACTOR             = 3.3f / (1 << 12); 
 
     // IMU
     constexpr auto IMU_I2C_ADDRESS               = 0x68;       // I2C address for the MPU6050 IMU sensor
-    constexpr auto IMU_SDA_PIN                   = 4;          // GPIO pin number for I2C SDA
-    constexpr auto IMU_SCL_PIN                   = 5;          // GPIO pin number for I2C SCL
+    constexpr auto IMU_SDA_PIN                   = 6;          // GPIO pin number for I2C SDA
+    constexpr auto IMU_SCL_PIN                   = 7;          // GPIO pin number for I2C SCL
     constexpr auto IMU_CONFIGURED_BEFORE_ACCEL   = true;       // Apparently the pull ups are fighting each other, causing corrupt data. They dont need to be in 2 places
 
     // Moisture Sensors
@@ -25,16 +25,14 @@ namespace Constants
 
     // Altimeter
     constexpr auto ALTIMITER_I2C_ADDRESS         = 0x77;       // I2C address for the BMP280 altimeter sensor
-    constexpr auto ALTIMITER_SDA_PIN             = 6;          // GPIO pin number for I2C SDA
-    constexpr auto ALTIMITER_SCL_PIN             = 7;          // GPIO pin number for I2C SCL
+    constexpr auto ALTIMITER_SDA_PIN             = 8;          // GPIO pin number for I2C SDA
+    constexpr auto ALTIMITER_SCL_PIN             = 9;          // GPIO pin number for I2C SCL
     constexpr auto GAS_CONSTANT                  = 8.3144598f; // Universal gas constant in J/(mol*K)
     constexpr auto GRAVITY                       = 9.81f;      // Acceleration due to gravity in m/s^2
 
-    // Stepper Motor
-    constexpr auto STEPPER_DIR_PIN               = 10;         // GPIO pin number for stepper motor direction control
-    constexpr auto STEPPER_STEP_PIN              = 11;         // GPIO pin number for stepper motor step control
-    constexpr auto STEPPER_ENABLE_PIN            = 12;         // GPIO pin number for stepper motor enable control (active LOW)
-    constexpr auto STEPPER_SLEEP_PIN             = 13;         // GPIO pin number for stepper motor sleep control (active HIGH)
+    // Angle Constants
+    constexpr auto MIN_ANGLE_SIDE_1              = 0;          // Min angle the servo motor can reach
+    constexpr auto MAX_ANGLE_SIDE_1              = 65;         // Max angle the servo motor can reach
 
     // Stepper Locations
     constexpr auto STEPPER_WINDOW1               = 0;          // Stepper position for window 1
@@ -44,13 +42,13 @@ namespace Constants
 
 
     // Linear Actuator
-    constexpr auto ACTUATOR_1_PIN_1              = 18;         // GPIO pin number for linear actuator 1 control pin 1
-    constexpr auto ACTUATOR_1_PIN_2              = 19;         // GPIO pin number for linear actuator 1 control pin 2
-    constexpr auto ACTUATOR_2_PIN_1              = 20;         // GPIO pin number for linear actuator 2 control pin 1
-    constexpr auto ACTUATOR_2_PIN_2              = 21;         // GPIO pin number for linear actuator 2 control pin 2
+    constexpr auto ACTUATOR_1_PIN_1              = 15;         // GPIO pin number for linear actuator 1 control pin 1
+    constexpr auto ACTUATOR_1_PIN_2              = 14;         // GPIO pin number for linear actuator 1 control pin 2
+    constexpr auto ACTUATOR_2_PIN_1              = 13;         // GPIO pin number for linear actuator 2 control pin 1
+    constexpr auto ACTUATOR_2_PIN_2              = 12;         // GPIO pin number for linear actuator 2 control pin 2
 
     // Servo Motor(if used)
-    constexpr auto SERVO_PWM_PIN                 = 22;         // GPIO pin number for servo motor PWM control
+    constexpr auto SERVO_PWM_PIN                 = 3;         // GPIO pin number for servo motor PWM control
 
     constexpr auto USE_UART                      = true;       // Set to true to enable UART communication (for debugging or additional sensors)
     constexpr auto TRANSMIT_ONLY                 = false;       // Set to true to skip all flight logic and only transmit collected sensor data every loop iteration

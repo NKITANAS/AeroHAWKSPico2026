@@ -43,6 +43,7 @@ project(AeroHAWKS2026 C CXX ASM)
 
 set(PICO_CXX_ENABLE_EXCEPTIONS 1)
 set(PICO_CXX_ENABLE_RTTI 1)
+set(PICO_PRINTF_SUPPORT_FLOAT 1)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
@@ -61,8 +62,8 @@ pico_set_program_name(AeroHAWKS2026 "AeroHAWKS2026")
 pico_set_program_version(AeroHAWKS2026 "0.1")
 
 # Enable or disable USB/UART stdio
-pico_enable_stdio_uart(AeroHAWKS2026 1)
-pico_enable_stdio_usb(AeroHAWKS2026 0)
+pico_enable_stdio_uart(AeroHAWKS2026 0)
+pico_enable_stdio_usb(AeroHAWKS2026 1)
 
 # Libraries to link
 target_link_libraries(AeroHAWKS2026
