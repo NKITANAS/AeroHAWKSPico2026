@@ -7,13 +7,13 @@ PicoContainer::PicoContainer()
     // init things
     stdio_init_all(); // Initialize all standard IO (for USB communication)
     adc_init();       // Initialize the ADC for soil moisture sensors
-    // Initialize the I2C communication for the IMU sensor
-    i2c_init(i2c0, 400*1000);
+    // Initialize I2C1 (GPIO 6/7 and 14/15 both map to i2c1)
+    i2c_init(i2c1, 400*1000);
     // Initialize subsystems
     m_imu.init();
+    m_altimeter.init();
     m_moisture_sensor_1.init();
     m_moisture_sensor_2.init();
-    m_altimeter.init();
 
     // Set initial speed and orientation
     speed_x = 0;
@@ -120,7 +120,7 @@ void PicoContainer::main_loop()
                 |    
                 |    
             */
-            float angle      = atan2(accel_y, -accel_x) * 360 / M_PI; // Calculate angle needed to rotate to the optimal position
+            float angle      = atan2(accel_y, -accel_x) * 360 / M_PI + Constants::ANGLE_SHIFT; // Calculate angle needed to rotate to the optimal position
             bool  actuator_1 = false; // Flag to indicate whether to use actuator 1 or 2 for the servo rotation
             // Account for unreachable angles - two ranges: -15-15, 165-195 (adjust as needed based on actual sensor readings and desired orientation). 
             // Other angles are reachable and the servo should be rotated to them
@@ -128,7 +128,8 @@ void PicoContainer::main_loop()
             {
                 m_servo.angle_servo(angle); // Rotate servo to the calculated angle to orient the payload for optimal moisture sensing, actuator 1
                 actuator_1 = true;
-            }
+            }owed as long
+as the name is changed.
             else if (angle > Constants::MIN_ANGLE_SIDE_1+180 && angle < Constants::MAX_ANGLE_SIDE_1+180)
             {
                 m_servo.angle_servo(angle - 180); // Rotate servo to the calculated angle to orient the payload for optimal moisture sensing, actuator 2
@@ -315,12 +316,23 @@ std::string PicoContainer::get_serial_input()
 /// @brief A function to test individual components without flight logic (if TEST_MODE is true)
 void PicoContainer::test()
 {
-    while (true)
-    {
-        
-        m_actuator_1.retract();
-        
-    }
-    
+    // Test script which goes through all systems
+    printf("Testing IMU...\n");
+    m_imu.read_accelerometer(&accel_x, &accel_y, &accel_z);
+    m_imu.read_gyroscope(&gyro_x, &gyro_y, &gyro_z);
+    m_imu.read_temperature(&temperature);
+    printf("ACCEL: %.2f %.2f %.2f | GYRO: %.2f %.2f %.2f | TEMP: %.2f\n",
+        accel_x, accel_y, accel_z,
+        gyro_x,  gyro_y,  gyro_z,
+        temperature);
+
+    printf("Testing Altimeter...\n");
+    m_altimeter.read_altitude(&altitude, temperature);
+    printf("ALT: %.2f m\n", altitude);
+    printf("Testing rotation mechanism...\n");
+    m_actuator_1.extend();
+    m_actuator_1.retract();
+    m_actuator_2.extend();
+    m_actuator_2.retract();
 }
 #pragma endregion

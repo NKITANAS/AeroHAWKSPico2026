@@ -25,8 +25,8 @@ class Altimeter
         i2c_inst_t *i2c_port;                // I2C port to use for communication
 
         // Altitude calculation
-        float m_initial_pressure; // Initial pressure at sea level for altitude calculation
-        float m_current_pressure; // Current pressure reading from the sensor
+        float m_initial_pressure = 0.0f; // Initial pressure at sea level for altitude calculation
+        float m_current_pressure = 0.0f; // Current pressure reading from the sensor
 
         void  read_pressure(float *pressure);
 };

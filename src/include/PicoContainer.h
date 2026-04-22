@@ -39,6 +39,7 @@ class PicoContainer
         explicit PicoContainer();
         void     main_loop();
         void     core2_loop();
+        void     main_demonstration_loop(); // A loop to demonstrate the servo and linear actuators for the rocket fair
         void     test(); // Function to test individual components without flight logic (if TEST_MODE is true)
 
     private:
@@ -67,7 +68,7 @@ class PicoContainer
         IMU                m_imu{Constants::IMU_I2C_ADDRESS, Constants::IMU_SDA_PIN, Constants::IMU_SCL_PIN};
         SoilMoistureSensor m_moisture_sensor_1{Constants::MOISTURE_SENSOR_1_PIN, Constants::MOISTURE_SENSOR_1_ADC_CHANNEL};
         SoilMoistureSensor m_moisture_sensor_2{Constants::MOISTURE_SENSOR_2_PIN, Constants::MOISTURE_SENSOR_2_ADC_CHANNEL};
-        Altimeter          m_altimeter{Constants::ALTIMITER_I2C_ADDRESS, Constants::ALTIMITER_SDA_PIN, Constants::ALTIMITER_SCL_PIN};
+        Altimeter          m_altimeter{Constants::ALTIMITER_I2C_ADDRESS, Constants::ALTIMITER_SDA_PIN, Constants::ALTIMITER_SCL_PIN, i2c1};
         LinearActuator     m_actuator_1{Constants::ACTUATOR_1_PIN_1, Constants::ACTUATOR_1_PIN_2};
         LinearActuator     m_actuator_2{Constants::ACTUATOR_2_PIN_1, Constants::ACTUATOR_2_PIN_2};
         Servo              m_servo{Constants::SERVO_PWM_PIN};

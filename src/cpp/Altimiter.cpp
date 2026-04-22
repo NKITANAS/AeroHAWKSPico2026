@@ -1,4 +1,5 @@
 #include "Altimiter.h"
+#include <cstdio>
 
 #pragma region Constructor
 /// @brief Initializes the altimeter with the specified I2C address.
@@ -20,6 +21,7 @@ Altimeter::Altimeter(uint8_t i2c_address, int sda_pin, int scl_pin, i2c_inst_t *
 /// @brief Initializes the altimeter sensor.
 void Altimeter::init()
 {
+    i2c_init(i2c_port, 400*1000); // Initialize I2C at 400 kHz
     gpio_set_function(m_sda_pin, GPIO_FUNC_I2C);
     gpio_set_function(m_scl_pin, GPIO_FUNC_I2C);
     gpio_pull_up(m_sda_pin);
@@ -33,8 +35,14 @@ void Altimeter::init()
 void Altimeter::read_altitude(float *altitude, float temperature)
 {
     read_pressure(&m_current_pressure);
-    m_initial_pressure ? : m_initial_pressure = m_current_pressure; // Set initial pressure if not already set
-    *altitude = (Constants::GAS_CONSTANT * temperature) / (Constants::GRAVITY) * std::log(m_initial_pressure / m_current_pressure);
+    if (m_initial_pressure == 0.0f)
+        m_initial_pressure = m_current_pressure; // Set initial pressure on first valid read
+    if (m_initial_pressure == 0.0f || m_current_pressure == 0.0f) {
+        *altitude = 0.0f;
+        return;
+    }
+    float temp_kelvin = temperature + 273.15f; // Convert Celsius to Kelvin
+    *altitude = (Constants::GAS_CONSTANT * temp_kelvin) / (Constants::GRAVITY) * std::log(m_initial_pressure / m_current_pressure);
 }
 
 #pragma region Read Pressure
@@ -43,9 +51,13 @@ void Altimeter::read_altitude(float *altitude, float temperature)
 /// @return The pressure value in hPa.
 void Altimeter::read_pressure(float *pressure)
 {
-    uint8_t pressure_data[3]; // 3 bytes for pressure data (20-bit value)
+    uint8_t pressure_data[3];
+    uint8_t reg = m_altitude_start; // Starting register for pressure data
+    i2c_write_blocking(i2c_port, m_address, &reg, 1, true); // Set register pointer
     i2c_read_blocking(i2c_port, m_address, pressure_data, 3, false);
-    // Convert the raw data to hPa (assuming a 20-bit value for pressure)
-    *pressure = ((pressure_data[0] << 16) | (pressure_data[1] << 8) | pressure_data[2]) / 256.0f;
+    // Combine the 3 bytes into a single 20-bit value (BMP280 pressure data is 20 bits across 3 registers)
+    uint32_t raw_pressure = ((uint32_t)pressure_data[0] << 12) | ((uint32_t)pressure_data[1] << 4) | (pressure_data[2] >> 4);
+    // Convert raw pressure to hPa (BMP280 datasheet specifies that the raw value needs to be divided by 256 to get pressure in hPa)
+    *pressure = raw_pressure / 256.0f;
 }
 #pragma endregion
