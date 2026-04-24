@@ -6,6 +6,7 @@
 #include <string>
 #include <optional>
 #include <vector>
+#include <stdint.h>
 
 #include "pico/stdlib.h"
 #include "pico/util/queue.h"
@@ -13,6 +14,7 @@
 #include "pico/critical_section.h"
 #include "hardware/i2c.h"
 #include "hardware/uart.h"
+#include "hardware/flash.h"
 
 #include "Constants.h"
 
@@ -33,6 +35,13 @@ enum State
     TRANSMISSION
 };
 
+struct __attribute__((packed)) FlashData
+{
+    uint32_t timestamp;    // 4 B
+    float    sensor_value; // 4 B (soil moisture value)
+    uint8_t  sensor_ptr;   // 1 B (soil moisture sensor number)
+};
+
 class PicoContainer
 {
     public:
@@ -41,6 +50,7 @@ class PicoContainer
         void     core2_loop();
         void     main_demonstration_loop(); // A loop to demonstrate the servo and linear actuators for the rocket fair
         void     test(); // Function to test individual components without flight logic (if TEST_MODE is true)
+        void     save_to_flash(FlashData *data); // Function to save data to flash memory (if HARDWARE_SAVE is true)
 
     private:
         State       current_state = IDLE;           // Current state of the flight, initialized to IDLE
@@ -54,7 +64,7 @@ class PicoContainer
         float       filtered_altitude;              // Kalman-filtered altitude (m)
         float       filtered_velocity;              // Kalman-filtered vertical velocity (m/s)
         uint16_t    moisture_1, moisture_2;         // Moisture level from the sensors
-        bool        start_signal_received;          // Flag to indicate if a start signal has been received from the Raspberry Pi
+        bool        start_signal_received = true;          // Flag to indicate if a start signal has been received from the Raspberry Pi
         bool        land_signal_received;           // Flag to indicate if a land signal has been received from the Raspberry Pi
         bool        land_manual_interrupt_recieved; // Flag to indicate if a manual interrupt signal has been received from the Raspberry Pi to stop landing sequence
         std::string serial_input;                   // Buffer for serial input from Raspberry Pi (if using UART)
@@ -90,6 +100,10 @@ class PicoContainer
         float    moisture_1_temp, moisture_2_temp;           // Temporary variables for moisture sensor data processing
 
         std::string get_serial_input();                // Helper function to format sensor data for serial transmission
+        void        run_landing_sequence();
+        bool        m_flash_initialized = false;
+        uint32_t    m_flash_write_index = 0;
+        static constexpr uint32_t MAX_FLASH_RECORDS = FLASH_SECTOR_SIZE / sizeof(FlashData);
         
 
 };

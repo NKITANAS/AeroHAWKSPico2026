@@ -53,8 +53,9 @@ void Altimeter::read_pressure(float *pressure)
 {
     uint8_t pressure_data[3];
     uint8_t reg = m_altitude_start; // Starting register for pressure data
-    i2c_write_blocking(i2c_port, m_address, &reg, 1, true); // Set register pointer
-    i2c_read_blocking(i2c_port, m_address, pressure_data, 3, false);
+    constexpr uint I2C_TIMEOUT_US = 10000; // 10ms timeout - aborts on bus lockup
+    if (i2c_write_timeout_us(i2c_port, m_address, &reg, 1, true,  I2C_TIMEOUT_US) < 0) return;
+    if (i2c_read_timeout_us (i2c_port, m_address, pressure_data, 3, false, I2C_TIMEOUT_US) < 0) return;
     // Combine the 3 bytes into a single 20-bit value (BMP280 pressure data is 20 bits across 3 registers)
     uint32_t raw_pressure = ((uint32_t)pressure_data[0] << 12) | ((uint32_t)pressure_data[1] << 4) | (pressure_data[2] >> 4);
     // Convert raw pressure to hPa (BMP280 datasheet specifies that the raw value needs to be divided by 256 to get pressure in hPa)

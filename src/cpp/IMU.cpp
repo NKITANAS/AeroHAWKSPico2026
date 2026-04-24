@@ -87,15 +87,16 @@ void IMU::read_temperature(float *temp)
 #pragma region Read All (Burst)
 /// @brief Reads all sensor data in a single 14-byte burst read from registers 0x3B-0x48.
 ///        This is the MPU6050's recommended read pattern: Accel(6) + Temp(2) + Gyro(6).
-void IMU::read_all(float *ax, float *ay, float *az,
+bool IMU::read_all(float *ax, float *ay, float *az,
                    float *gx, float *gy, float *gz,
                    float *temp)
 {
     uint8_t reg = 0x3B; // Starting register (ACCEL_XOUT_H)
     uint8_t buf[14];
+    constexpr uint I2C_TIMEOUT_US = 10000; // 10ms - enough for 400kHz, aborts on bus lockup
 
-    i2c_write_blocking(i2c_port, m_address, &reg, 1, true);
-    i2c_read_blocking(i2c_port, m_address, buf, 14, false);
+    if (i2c_write_timeout_us(i2c_port, m_address, &reg, 1, true,  I2C_TIMEOUT_US) < 0) return false;
+    if (i2c_read_timeout_us (i2c_port, m_address, buf, 14, false, I2C_TIMEOUT_US) < 0) return false;
 
     // Accel: bytes 0-5 (registers 0x3B-0x40)
     *ax = (int16_t)((buf[0] << 8) | buf[1]) / MPUConstants::ACCEL_SENSITIVITY * MPUConstants::GRAVITY;
@@ -110,6 +111,7 @@ void IMU::read_all(float *ax, float *ay, float *az,
     *gx = (int16_t)((buf[8]  << 8) | buf[9])  / MPUConstants::GYRO_SENSITIVITY;
     *gy = (int16_t)((buf[10] << 8) | buf[11]) / MPUConstants::GYRO_SENSITIVITY;
     *gz = (int16_t)((buf[12] << 8) | buf[13]) / MPUConstants::GYRO_SENSITIVITY;
+    return true;
 }
 #pragma endregion
 

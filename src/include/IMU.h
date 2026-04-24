@@ -11,7 +11,7 @@
 namespace MPUConstants
 {
     // REFER TO DATASHEET TO MAKE SENSITIVITY CHANGES: https://invensense.tdk.com/wp-content/uploads/2015/02/MPU-6000-Datasheet1.pdf
-    constexpr auto ACCEL_SENSITIVITY = 16384.0f;  // LSB/g for the MPU6050 at +-16g range
+    constexpr auto ACCEL_SENSITIVITY = 2048.0f;   // LSB/g for the MPU6050 at +-16g range (AFS_SEL=3, register 0x1C = 0x18)
     constexpr auto GRAVITY           = 9.81f;    // Acceleration due to gravity in m/s^2
     constexpr auto GYRO_SENSITIVITY  = 131.0f;   // LSB/deg/s for the MPU6050 at +-250deg/s range
 }
@@ -25,7 +25,7 @@ class IMU
         void     read_accelerometer(float *x, float *y, float *z);
         void     read_gyroscope(float *x, float *y, float *z);
         void     read_temperature(float *temp);
-        void     read_all(float *ax, float *ay, float *az,
+        bool     read_all(float *ax, float *ay, float *az,
                           float *gx, float *gy, float *gz,
                           float *temp);
     private:
